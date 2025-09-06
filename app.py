@@ -107,6 +107,76 @@ class CensusTradeAPI:
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
             return {"error": f"Unexpected error: {str(e)}"}
+    
+    def fetch_all_port_commodities(self, port_code, time_period, trade_type="imports"):
+        """
+        Fetch ALL commodity data for a specific port and time period
+        
+        Args:
+            port_code (str): Port code (e.g., '2010' for LA)
+            time_period (str): Time period in format 'YYYY-MM' (e.g., '2025-06')
+            trade_type (str): 'imports' or 'exports' (default: 'imports')
+        
+        Returns:
+            dict: API response data with all commodities for the port
+        """
+        try:
+            # Choose the correct endpoint based on trade type
+            base_url = self.BASE_URL_IMPORTS if trade_type == "imports" else self.BASE_URL_EXPORTS
+            
+            # Build query parameters - no commodity filter to get ALL commodities
+            if trade_type == "imports":
+                params = {
+                    'get': 'I_COMMODITY,I_COMMODITY_LDESC,GEN_VAL_MO',
+                    'PORT': port_code,
+                    'time': time_period
+                }
+            else:  # exports
+                params = {
+                    'get': 'E_COMMODITY,E_COMMODITY_LDESC,ALL_VAL_MO',
+                    'PORT': port_code,
+                    'time': time_period
+                }
+            
+            if self.api_key:
+                params['key'] = self.api_key
+            
+            logger.info(f"Fetching ALL {trade_type} commodities for port {port_code}, time {time_period}")
+            
+            response = requests.get(base_url, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Parse the response - first row is headers
+            if len(data) < 2:
+                return {"error": "No data found", "raw_response": data}
+            
+            headers = data[0]
+            rows = data[1:]
+            
+            # Convert to list of dictionaries, filtering out total rows
+            parsed_data = []
+            for row in rows:
+                # Skip the "TOTAL" row (commodity code is typically "-")
+                if row[0] != '-' and len(row) >= len(headers):
+                    record = dict(zip(headers, row))
+                    
+                    # Add port code to each record
+                    record['PORT'] = port_code
+                    record['time'] = time_period
+                    
+                    parsed_data.append(record)
+            
+            logger.info(f"Successfully fetched {len(parsed_data)} commodity records for port {port_code}")
+            return {"success": True, "data": parsed_data, "count": len(parsed_data)}
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"API request failed for port {port_code}: {str(e)}")
+            return {"error": f"API request failed: {str(e)}"}
+        except Exception as e:
+            logger.error(f"Unexpected error for port {port_code}: {str(e)}")
+            return {"error": f"Unexpected error: {str(e)}"}
 
 
 class TradeDataManager:
@@ -981,69 +1051,77 @@ def test_api():
 
 @app.route('/refresh-data')
 def refresh_current_data():
-    """Fetch and store current trade data for popular commodities"""
+    """Fetch and store current trade data for all available commodities at major ports"""
     if not db_manager:
         return jsonify({"error": "Database not configured"}), 500
     
     try:
-        # Popular commodity codes to refresh
-        popular_commodities = [
-            '850760',  # Lithium ion batteries
-            '850440',  # Static converters  
-            '854230',  # Electronic integrated circuits
-            '847130',  # Portable digital computers
-            '851712',  # Telephones for cellular networks
-            '300490',  # Medicaments (pharmaceutical products)
-            '870323',  # Motor cars (1500-3000cc)
-        ]
+        # Major U.S. ports to fetch data from (start with just LA for testing)
+        major_ports = ['2010']  # Just LA for now
         
-        # Recent time periods to fetch (accounting for data lag)
-        time_periods = ['2025-06', '2025-05', '2025-04', '2025-03']
+        success_count = 0
+        error_count = 0
+        total_records = 0
         
-        results = []
-        for hs6 in popular_commodities:
-            for time_period in time_periods:
-                logger.info(f"Fetching current data for HS6 {hs6}, period {time_period}")
+        for port_code in major_ports:
+            logger.info(f"Fetching ALL commodities for port {port_code}...")
+            
+            try:
+                # Get all available commodities for this port
+                result = census_api.fetch_all_port_commodities(port_code, '2025-06')
                 
-                # Fetch imports
-                import_result = census_api.fetch_trade_data(hs6, time_period, trade_type='imports')
-                if import_result.get('success') and import_result.get('data'):
-                    store_result = db_manager.store_trade_data(
-                        import_result['data'], 'imports', hs6, time_period
-                    )
-                    results.append({
-                        'hs6': hs6,
-                        'period': time_period,
-                        'type': 'imports',
-                        'records': len(import_result['data']),
-                        'stored': store_result.get('stored_count', 0)
-                    })
-                
-                # Fetch exports  
-                export_result = census_api.fetch_trade_data(hs6, time_period, trade_type='exports')
-                if export_result.get('success') and export_result.get('data'):
-                    store_result = db_manager.store_trade_data(
-                        export_result['data'], 'exports', hs6, time_period
-                    )
-                    results.append({
-                        'hs6': hs6,
-                        'period': time_period,
-                        'type': 'exports', 
-                        'records': len(export_result['data']),
-                        'stored': store_result.get('stored_count', 0)
-                    })
-        
-        total_stored = sum(r['stored'] for r in results)
+                if result.get('success') and result.get('data'):
+                    # Process and filter the data
+                    trade_records = []
+                    for record in result['data']:
+                        # Skip records with null or empty commodity codes
+                        commodity_code = record.get('I_COMMODITY')
+                        if not commodity_code or commodity_code == '-':
+                            continue
+                            
+                        # Convert to the format expected by store_trade_data
+                        processed_record = {
+                            'PORT': port_code,
+                            'PORT_NAME': record.get('PORT_NAME', ''),
+                            'I_COMMODITY_LDESC': record.get('I_COMMODITY_LDESC', ''),
+                            'GEN_VAL_MO': record.get('GEN_VAL_MO', '0'),
+                            'time': '2025-06'
+                        }
+                        trade_records.append((processed_record, commodity_code))
+                    
+                    if trade_records:
+                        # Store each commodity separately
+                        records_stored = 0
+                        for processed_record, commodity_code in trade_records:
+                            store_result = db_manager.store_trade_data(
+                                [processed_record], 'imports', commodity_code, '2025-06'
+                            )
+                            records_stored += store_result.get('stored_count', 0)
+                        
+                        total_records += records_stored
+                        success_count += 1
+                        logger.info(f"Port {port_code}: {records_stored} records stored")
+                    else:
+                        logger.warning(f"No valid records after filtering for port {port_code}")
+                        error_count += 1
+                else:
+                    logger.warning(f"No data returned for port {port_code}")
+                    error_count += 1
+                    
+            except Exception as e:
+                logger.error(f"Error fetching data for port {port_code}: {e}")
+                error_count += 1
         
         return jsonify({
             'success': True,
-            'message': f'Successfully refreshed data for {len(popular_commodities)} commodities',
-            'total_records_stored': total_stored,
-            'details': results
+            'message': f'Data refresh complete. Processed {success_count} ports, {error_count} errors. {total_records} total records stored.',
+            'ports_processed': success_count,
+            'ports_failed': error_count,
+            'total_records_stored': total_records
         })
         
     except Exception as e:
-        logger.error(f"Failed to refresh current data: {e}")
+        logger.error(f"Failed to refresh data: {e}")
         return jsonify({"error": f"Failed to refresh data: {str(e)}"}), 500
 
 @app.route('/stored-data')

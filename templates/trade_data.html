@@ -189,6 +189,17 @@
             </div>
         </div>
         <div class="col-md-4">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Data Management</h5>
+              <button id="refreshDataBtn" class="btn btn-success">
+                <i class="bi bi-arrow-clockwise"></i>
+                Refresh Data
+              </button>
+              <div id="refreshStatus" class="mt-2"></div>
+            </div>
+          </div>
+        </div>
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Top Commodities</h5>
@@ -1013,6 +1024,37 @@ document.addEventListener('DOMContentLoaded', function() {
         updateStatistics();
         updateCharts();
         updateDataTable();
+    });
+
+    // Refresh data button handler
+    document.getElementById('refreshDataBtn').addEventListener('click', function() {
+        const btn = this;
+        const status = document.getElementById('refreshStatus');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Refreshing...';
+        status.innerHTML = '<div class="text-info">Fetching current trade data...</div>';
+        
+        fetch('/refresh-data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.innerHTML = `<div class="text-success"><i class="bi bi-check-circle"></i> ${data.message}</div>`;
+                    // Reload the data
+                    loadTradeData();
+                    loadDropdownData();
+                } else {
+                    status.innerHTML = `<div class="text-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${data.error}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Refresh error:', error);
+                status.innerHTML = `<div class="text-danger"><i class="bi bi-exclamation-triangle"></i> Network error</div>`;
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+            });
     });
 });
 </script>
