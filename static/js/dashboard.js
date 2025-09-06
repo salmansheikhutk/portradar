@@ -301,12 +301,15 @@ function refreshDashboard() {
 function showCreateWatchlistModal() {
     const modal = new bootstrap.Modal(document.getElementById('createWatchlistModal'));
     modal.show();
+    
+    // Load commodity and port data for the dropdowns
+    loadWatchlistFormData();
 }
 
 async function createWatchlist() {
     const name = document.getElementById('watchlist-name').value.trim();
-    const hs6Input = document.getElementById('hs6-codes').value.trim();
-    const portInput = document.getElementById('port-codes').value.trim();
+    const hs6Select = document.getElementById('hs6-codes');
+    const portSelect = document.getElementById('port-codes');
     const momThreshold = document.getElementById('mom-threshold').value;
     const volumeThreshold = document.getElementById('volume-threshold').value;
     
@@ -315,8 +318,9 @@ async function createWatchlist() {
         return;
     }
     
-    const hs6Codes = hs6Input ? hs6Input.split(',').map(code => code.trim()).filter(code => code) : [];
-    const portCodes = portInput ? portInput.split(',').map(code => code.trim()).filter(code => code) : [];
+    // Get selected values from multi-select dropdowns
+    const hs6Codes = Array.from(hs6Select.selectedOptions).map(option => option.value);
+    const portCodes = Array.from(portSelect.selectedOptions).map(option => option.value);
     
     const rules = {};
     if (momThreshold) rules.mom_change_threshold = parseFloat(momThreshold);
@@ -346,6 +350,52 @@ async function createWatchlist() {
         
     } catch (error) {
         showAlert('Failed to create watchlist: ' + error.message, 'danger');
+    }
+}
+
+async function loadWatchlistFormData() {
+    try {
+        // Load commodities
+        const commoditiesResponse = await fetch('/commodities');
+        const commodities = await commoditiesResponse.json();
+        
+        const hs6Select = document.getElementById('hs6-codes');
+        hs6Select.innerHTML = ''; // Clear existing options
+        
+        if (commodities && commodities.length > 0) {
+            commodities.forEach(commodity => {
+                const option = document.createElement('option');
+                option.value = commodity.hs6;
+                option.textContent = `${commodity.hs6} - ${commodity.description || 'N/A'}`;
+                hs6Select.appendChild(option);
+            });
+        } else {
+            hs6Select.innerHTML = '<option disabled>No commodities available</option>';
+        }
+        
+        // Load ports
+        const portsResponse = await fetch('/ports');
+        const ports = await portsResponse.json();
+        
+        const portSelect = document.getElementById('port-codes');
+        portSelect.innerHTML = ''; // Clear existing options
+        
+        if (ports && ports.length > 0) {
+            ports.forEach(port => {
+                const option = document.createElement('option');
+                option.value = port.port_code;
+                option.textContent = `${port.port_code} - ${port.port_name || 'N/A'}`;
+                portSelect.appendChild(option);
+            });
+        } else {
+            portSelect.innerHTML = '<option disabled>No ports available</option>';
+        }
+        
+    } catch (error) {
+        console.error('Failed to load form data:', error);
+        // Set fallback options
+        document.getElementById('hs6-codes').innerHTML = '<option disabled>Failed to load commodities</option>';
+        document.getElementById('port-codes').innerHTML = '<option disabled>Failed to load ports</option>';
     }
 }
 

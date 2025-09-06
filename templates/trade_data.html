@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Trade Data Explorer - PortRadar{% endblock %}
+{% block title %}PortRadar - Trade Data Monitor{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -37,19 +37,24 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="bi bi-graph-up"></i> Trade Data Explorer</h2>
-            <p class="text-muted mb-0">Analyze U.S. international trade data with advanced filtering and visualization</p>
-        </div>
-        <div class="btn-group">
-            <button class="btn btn-outline-primary" onclick="exportData('csv')">
-                <i class="bi bi-download"></i> Export CSV
-            </button>
-            <button class="btn btn-outline-primary" onclick="exportData('json')">
-                <i class="bi bi-filetype-json"></i> Export JSON
-            </button>
+    <!-- Header Section with Key Metrics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="bi bi-speedometer2"></i> PortRadar</h2>
+                    <p class="text-muted mb-0">Monitor U.S. international trade data</p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" onclick="showCreateWatchlistModal()">
+                        <i class="bi bi-plus-circle"></i> Create Watchlist
+                    </button>
+                    <button id="refreshDataBtn" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Data
+                    </button>
+                </div>
+                <div id="refreshStatus" class="mt-2"></div>
+            </div>
         </div>
     </div>
 
@@ -148,37 +153,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body text-center">
-                    <button id="refreshDataBtn" class="btn btn-success">
-                        <i class="bi bi-arrow-clockwise"></i>
-                        Refresh Data
-                    </button>
-                    <div id="refreshStatus" class="mt-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Data Table -->
-    <div class="row">
-        <div class="col-12">
-
-    <!-- Data Management -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-          <div class="card">
-            <div class="card-body">
-              <h5 class="card-title">Data Management</h5>
-              <button id="refreshDataBtn" class="btn btn-success">
-                <i class="bi bi-arrow-clockwise"></i>
-                Refresh Data
-              </button>
-              <div id="refreshStatus" class="mt-2"></div>
-            </div>
-          </div>
         </div>
     </div>
 
@@ -783,6 +757,226 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
             });
+    });
+});
+</script>
+
+<!-- Create Watchlist Modal -->
+<div class="modal fade" id="createWatchlistModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Watchlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createWatchlistForm">
+                    <div class="mb-3">
+                        <label for="watchlist-name" class="form-label">Watchlist Name *</label>
+                        <input type="text" class="form-control" id="watchlist-name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="hs6-codes" class="form-label">HS6 Commodity Codes</label>
+                        <select class="form-select" id="hs6-codes" multiple size="5">
+                            <option disabled>Loading commodities...</option>
+                        </select>
+                        <div class="form-text">Hold Ctrl/Cmd to select multiple commodities</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="port-codes" class="form-label">Port Codes</label>
+                        <select class="form-select" id="port-codes" multiple size="5">
+                            <option disabled>Loading ports...</option>
+                        </select>
+                        <div class="form-text">Hold Ctrl/Cmd to select multiple ports (leave empty for all ports)</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="mom-threshold" class="form-label">MoM Change Alert (%)</label>
+                            <input type="number" class="form-control" id="mom-threshold" 
+                                   placeholder="25" min="1" max="100">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="volume-threshold" class="form-label">Volume Alert ($)</label>
+                            <input type="number" class="form-control" id="volume-threshold" 
+                                   placeholder="1000000" min="1000">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createWatchlist()">Create Watchlist</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Additional consolidated dashboard functions
+const currentUser = 'demo_user';
+
+// Load dashboard metrics
+async function loadDashboardMetrics() {
+    try {
+        // Load watchlists count
+        const watchlistsResponse = await fetch(`/watchlists?user_id=${currentUser}`);
+        const watchlists = await watchlistsResponse.json();
+        document.getElementById('watchlists-count').textContent = watchlists.length;
+        
+        // Load alerts count
+        const alertsResponse = await fetch(`/alerts?user_id=${currentUser}&limit=50`);
+        const alerts = await alertsResponse.json();
+        document.getElementById('alerts-count').textContent = alerts.length;
+        
+        // Load trade records count
+        const tradeResponse = await fetch('/stored-data?limit=1');
+        const tradeData = await tradeResponse.json();
+        document.getElementById('trade-records-count').textContent = tradeData.total_count || filteredData.length;
+        
+        // Load commodities count
+        const commoditiesResponse = await fetch('/commodities');
+        const commodities = await commoditiesResponse.json();
+        document.getElementById('hs6-count').textContent = commodities.length;
+        
+    } catch (error) {
+        console.error('Failed to load dashboard metrics:', error);
+    }
+}
+
+// Show create watchlist modal
+function showCreateWatchlistModal() {
+    const modal = new bootstrap.Modal(document.getElementById('createWatchlistModal'));
+    
+    // Load data first, then show modal
+    loadWatchlistFormData().then(() => {
+        modal.show();
+    });
+}
+
+// Load watchlist form data
+async function loadWatchlistFormData() {
+    try {
+        console.log('Loading watchlist form data...');
+        
+        // Load commodities
+        const commoditiesResponse = await fetch('/commodities');
+        const commodities = await commoditiesResponse.json();
+        console.log('Commodities loaded:', commodities.length);
+        
+        const hs6Select = document.getElementById('hs6-codes');
+        hs6Select.innerHTML = '';
+        
+        if (commodities && commodities.length > 0) {
+            commodities.forEach(commodity => {
+                const option = document.createElement('option');
+                option.value = commodity.hs6;
+                option.textContent = `${commodity.hs6} - ${commodity.description || 'N/A'}`;
+                hs6Select.appendChild(option);
+            });
+        } else {
+            hs6Select.innerHTML = '<option disabled>No commodities available</option>';
+        }
+        
+        // Load ports
+        const portsResponse = await fetch('/ports');
+        const ports = await portsResponse.json();
+        console.log('Ports loaded:', ports.length);
+        
+        const portSelect = document.getElementById('port-codes');
+        portSelect.innerHTML = '';
+        
+        if (ports && ports.length > 0) {
+            ports.forEach(port => {
+                const option = document.createElement('option');
+                option.value = port.port_code;
+                option.textContent = `${port.port_code} - ${port.port_name || 'N/A'}`;
+                portSelect.appendChild(option);
+            });
+        } else {
+            portSelect.innerHTML = '<option disabled>No ports available</option>';
+        }
+        
+        console.log('Watchlist form data loaded successfully');
+        
+    } catch (error) {
+        console.error('Failed to load form data:', error);
+        document.getElementById('hs6-codes').innerHTML = '<option disabled>Failed to load commodities</option>';
+        document.getElementById('port-codes').innerHTML = '<option disabled>Failed to load ports</option>';
+    }
+}
+
+// Create watchlist
+async function createWatchlist() {
+    const name = document.getElementById('watchlist-name').value.trim();
+    const hs6Select = document.getElementById('hs6-codes');
+    const portSelect = document.getElementById('port-codes');
+    const momThreshold = document.getElementById('mom-threshold').value;
+    const volumeThreshold = document.getElementById('volume-threshold').value;
+    
+    if (!name) {
+        showAlert('Please enter a watchlist name', 'warning');
+        return;
+    }
+    
+    const hs6Codes = Array.from(hs6Select.selectedOptions).map(option => option.value);
+    const portCodes = Array.from(portSelect.selectedOptions).map(option => option.value);
+    
+    const rules = {};
+    if (momThreshold) rules.mom_change_threshold = parseFloat(momThreshold);
+    if (volumeThreshold) rules.volume_threshold = parseFloat(volumeThreshold);
+    
+    try {
+        const response = await fetch('/watchlists', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: currentUser,
+                name: name,
+                hs6: hs6Codes,
+                ports: portCodes,
+                rules: rules
+            })
+        });
+        
+        if (response.ok) {
+            showAlert('Watchlist created successfully!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createWatchlistModal'));
+            modal.hide();
+            document.getElementById('createWatchlistForm').reset();
+            loadDashboardMetrics(); // Refresh metrics
+        } else {
+            throw new Error('Failed to create watchlist');
+        }
+        
+    } catch (error) {
+        showAlert('Failed to create watchlist: ' + error.message, 'danger');
+    }
+}
+
+// Add clickable badge functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Load dashboard metrics when page loads
+    loadDashboardMetrics();
+    
+    // Add click handlers for badge quick selections
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('clickable-badge')) {
+            const type = e.target.getAttribute('data-type');
+            const value = e.target.getAttribute('data-value');
+            
+            if (type === 'hs6') {
+                document.getElementById('hs6Filter').value = value;
+            } else if (type === 'port') {
+                document.getElementById('portFilter').value = value;
+            }
+            
+            applyFilters();
+        }
     });
 });
 </script>

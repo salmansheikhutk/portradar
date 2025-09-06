@@ -211,16 +211,18 @@
                     
                     <div class="mb-3">
                         <label for="hs6-codes" class="form-label">HS6 Commodity Codes</label>
-                        <input type="text" class="form-control" id="hs6-codes" 
-                               placeholder="e.g., 850760,847330 (comma-separated)">
-                        <div class="form-text">6-digit HS codes to monitor</div>
+                        <select class="form-select" id="hs6-codes" multiple size="5">
+                            <option disabled>Loading commodities...</option>
+                        </select>
+                        <div class="form-text">Hold Ctrl/Cmd to select multiple commodities</div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="port-codes" class="form-label">Port Codes</label>
-                        <input type="text" class="form-control" id="port-codes" 
-                               placeholder="e.g., 2704,1001 (comma-separated or leave empty for all ports)">
-                        <div class="form-text">Specific ports to monitor (optional)</div>
+                        <select class="form-select" id="port-codes" multiple size="5">
+                            <option disabled>Loading ports...</option>
+                        </select>
+                        <div class="form-text">Hold Ctrl/Cmd to select multiple ports (leave empty for all ports)</div>
                     </div>
                     
                     <div class="row">

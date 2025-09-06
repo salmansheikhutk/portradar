@@ -33,22 +33,19 @@
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
-                            <i class="bi bi-speedometer2"></i> Dashboard
+                            <i class="bi bi-house"></i> Home
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'watchlists_page' %}active{% endif %}" href="{{ url_for('watchlists_page') }}">
-                            <i class="bi bi-binoculars"></i> Watchlists
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'trade_data_page' %}active{% endif %}" href="{{ url_for('trade_data_page') }}">
-                            <i class="bi bi-graph-up"></i> Trade Data
+                            <i class="bi bi-binoculars"></i> Watchlists 
+                            <span class="badge bg-primary ms-1" id="nav-watchlists-count">0</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'alerts_page' %}active{% endif %}" href="{{ url_for('alerts_page') }}">
-                            <i class="bi bi-bell"></i> Alerts
+                            <i class="bi bi-bell"></i> Alerts 
+                            <span class="badge bg-warning ms-1" id="nav-alerts-count">0</span>
                         </a>
                     </li>
                 </ul>

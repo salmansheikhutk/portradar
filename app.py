@@ -849,20 +849,17 @@ def index():
         }
     })
 
+@app.route('/')
 @app.route('/dashboard')
+@app.route('/trade-data-page')
 def dashboard():
-    """Main dashboard page"""
-    return render_template('dashboard.html')
+    """Main consolidated dashboard and trade data page"""
+    return render_template('trade_data.html')
 
 @app.route('/watchlists-page')
 def watchlists_page():
     """Watchlists management page"""
     return render_template('watchlists.html')
-
-@app.route('/trade-data-page')
-def trade_data_page():
-    """Trade data search page"""
-    return render_template('trade_data.html')
 
 @app.route('/alerts-page')
 def alerts_page():
