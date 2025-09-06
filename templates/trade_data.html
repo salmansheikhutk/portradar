@@ -781,7 +781,8 @@ async function loadDashboardMetrics() {
         
         // Load commodities count
         const commoditiesResponse = await fetch('/commodities');
-        const commodities = await commoditiesResponse.json();
+        const commoditiesData = await commoditiesResponse.json();
+        const commodities = commoditiesData.commodities || [];
         document.getElementById('hs6-count').textContent = commodities.length;
         
     } catch (error) {
@@ -806,7 +807,8 @@ async function loadWatchlistFormData() {
         
         // Load commodities
         const commoditiesResponse = await fetch('/commodities');
-        const commodities = await commoditiesResponse.json();
+        const commoditiesData = await commoditiesResponse.json();
+        const commodities = commoditiesData.commodities || [];
         console.log('Commodities loaded:', commodities.length);
         
         const hs6Select = document.getElementById('hs6-codes');
@@ -815,8 +817,8 @@ async function loadWatchlistFormData() {
         if (commodities && commodities.length > 0) {
             commodities.forEach(commodity => {
                 const option = document.createElement('option');
-                option.value = commodity.hs6;
-                option.textContent = `${commodity.hs6} - ${commodity.description || 'N/A'}`;
+                option.value = commodity.code;
+                option.textContent = commodity.display_name || `${commodity.code} - ${commodity.description || 'N/A'}`;
                 hs6Select.appendChild(option);
             });
         } else {
@@ -825,7 +827,8 @@ async function loadWatchlistFormData() {
         
         // Load ports
         const portsResponse = await fetch('/ports');
-        const ports = await portsResponse.json();
+        const portsData = await portsResponse.json();
+        const ports = portsData.ports || [];
         console.log('Ports loaded:', ports.length);
         
         const portSelect = document.getElementById('port-codes');
@@ -834,8 +837,8 @@ async function loadWatchlistFormData() {
         if (ports && ports.length > 0) {
             ports.forEach(port => {
                 const option = document.createElement('option');
-                option.value = port.port_code;
-                option.textContent = `${port.port_code} - ${port.port_name || 'N/A'}`;
+                option.value = port.code;
+                option.textContent = port.display_name || `${port.code} - ${port.name || 'N/A'}`;
                 portSelect.appendChild(option);
             });
         } else {
