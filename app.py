@@ -496,10 +496,269 @@ class WatchlistManager:
             return {"error": f"Failed to delete watchlist: {str(e)}"}
 
 
-# Initialize API client, database manager, and watchlist manager
+class AlertManager:
+    """Handles alert generation and management based on watchlist rules"""
+    
+    def __init__(self, database_url):
+        self.database_url = database_url
+    
+    def generate_alerts(self, watchlist_id=None, user_id=None):
+        """Generate alerts by checking watchlist rules against current data"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    # Get watchlists to check
+                    if watchlist_id:
+                        cursor.execute("""
+                            SELECT id, user_id, name, hs6, ports, rules_json
+                            FROM watchlists WHERE id = %s
+                        """, (watchlist_id,))
+                    elif user_id:
+                        cursor.execute("""
+                            SELECT id, user_id, name, hs6, ports, rules_json
+                            FROM watchlists WHERE user_id = %s
+                        """, (user_id,))
+                    else:
+                        cursor.execute("""
+                            SELECT id, user_id, name, hs6, ports, rules_json
+                            FROM watchlists
+                            ORDER BY id
+                        """)
+                    
+                    watchlists = cursor.fetchall()
+                    generated_alerts = []
+                    
+                    for watchlist_row in watchlists:
+                        wl_id, wl_user_id, wl_name, hs6_codes, port_codes, rules_json = watchlist_row
+                        
+                        if not rules_json:
+                            continue
+                        
+                        rules = rules_json
+                        
+                        # Check each HS6 code in the watchlist
+                        for hs6 in (hs6_codes or []):
+                            
+                            # Check month-over-month change rule
+                            if rules.get('mom_change_threshold'):
+                                mom_alerts = self._check_mom_change(cursor, hs6, port_codes, rules['mom_change_threshold'], wl_id, wl_user_id)
+                                generated_alerts.extend(mom_alerts)
+                            
+                            # Check volume threshold rule
+                            if rules.get('volume_threshold'):
+                                volume_alerts = self._check_volume_threshold(cursor, hs6, port_codes, rules['volume_threshold'], wl_id, wl_user_id)
+                                generated_alerts.extend(volume_alerts)
+                    
+                    # Store generated alerts in database
+                    for alert in generated_alerts:
+                        cursor.execute("""
+                            INSERT INTO alerts (watchlist_id, period, rule, score, details_json, created_at)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (watchlist_id, period, rule) 
+                            DO NOTHING
+                        """, (
+                            alert['watchlist_id'], alert['period'], alert['alert_type'],
+                            alert.get('score', 0), json.dumps(alert), datetime.now()
+                        ))
+                    
+                    conn.commit()
+                    
+                    logger.info(f"Generated {len(generated_alerts)} alerts")
+                    return {
+                        "success": True,
+                        "alerts_generated": len(generated_alerts),
+                        "alerts": generated_alerts
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Failed to generate alerts: {e}")
+            return {"error": f"Failed to generate alerts: {str(e)}"}
+    
+    def _check_mom_change(self, cursor, hs6, port_codes, threshold, watchlist_id, user_id):
+        """Check for month-over-month change alerts"""
+        alerts = []
+        
+        # Get data from multiple periods for comparison (expand limit)
+        if port_codes:
+            cursor.execute("""
+                SELECT port_code, period, value_usd
+                FROM trade_monthly
+                WHERE hs6 = %s AND port_code = ANY(%s)
+                ORDER BY period DESC
+                LIMIT 100
+            """, (hs6, port_codes))
+        else:
+            cursor.execute("""
+                SELECT port_code, period, value_usd
+                FROM trade_monthly
+                WHERE hs6 = %s
+                ORDER BY period DESC
+                LIMIT 100
+            """, (hs6,))
+        
+        rows = cursor.fetchall()
+        
+        # Group by port and calculate changes
+        port_data = {}
+        for port_code, period, value_usd in rows:
+            if port_code not in port_data:
+                port_data[port_code] = []
+            port_data[port_code].append((period, float(value_usd or 0)))
+        
+        for port_code, data_points in port_data.items():
+            if len(data_points) < 2:
+                continue
+            
+            # Sort by period (most recent first)
+            data_points.sort(key=lambda x: x[0], reverse=True)
+            current_value = data_points[0][1]
+            previous_value = data_points[1][1]
+            current_period = data_points[0][0]
+            
+            if previous_value == 0:
+                continue
+            
+            # Calculate percentage change
+            pct_change = ((current_value - previous_value) / previous_value) * 100
+            
+            if abs(pct_change) >= threshold:
+                direction = "increased" if pct_change > 0 else "decreased"
+                alerts.append({
+                    'watchlist_id': watchlist_id,
+                    'user_id': user_id,
+                    'alert_type': 'mom_change',
+                    'hs6': hs6,
+                    'port_code': port_code,
+                    'period': current_period.strftime('%Y-%m-%d'),
+                    'value_usd': current_value,
+                    'reference_value': previous_value,
+                    'threshold_value': threshold,
+                    'score': abs(pct_change),
+                    'message': f"HS6 {hs6} at port {port_code} {direction} by {abs(pct_change):.1f}% MoM (${current_value:,.0f} vs ${previous_value:,.0f})"
+                })
+        
+        return alerts
+    
+    def _check_volume_threshold(self, cursor, hs6, port_codes, threshold, watchlist_id, user_id):
+        """Check for volume threshold alerts"""
+        alerts = []
+        
+        # Get recent data to check against threshold (expand time range)
+        if port_codes:
+            cursor.execute("""
+                SELECT port_code, period, value_usd
+                FROM trade_monthly
+                WHERE hs6 = %s AND port_code = ANY(%s)
+                AND period >= (CURRENT_DATE - INTERVAL '12 months')
+                ORDER BY period DESC, value_usd DESC
+            """, (hs6, port_codes))
+        else:
+            cursor.execute("""
+                SELECT port_code, period, value_usd
+                FROM trade_monthly
+                WHERE hs6 = %s
+                AND period >= (CURRENT_DATE - INTERVAL '12 months')
+                ORDER BY period DESC, value_usd DESC
+            """, (hs6,))
+        
+        rows = cursor.fetchall()
+        
+        for port_code, period, value_usd in rows:
+            value = float(value_usd or 0)
+            if value >= threshold:
+                alerts.append({
+                    'watchlist_id': watchlist_id,
+                    'user_id': user_id,
+                    'alert_type': 'volume_threshold',
+                    'hs6': hs6,
+                    'port_code': port_code,
+                    'period': period.strftime('%Y-%m-%d'),
+                    'value_usd': value,
+                    'reference_value': None,
+                    'threshold_value': threshold,
+                    'score': (value / threshold) * 100,
+                    'message': f"HS6 {hs6} at port {port_code} exceeded volume threshold: ${value:,.0f} >= ${threshold:,.0f}"
+                })
+        
+        return alerts
+    
+    def get_alerts(self, user_id=None, watchlist_id=None, alert_type=None, limit=100):
+        """Get alerts for user, watchlist, or all alerts"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    conditions = []
+                    params = []
+                    
+                    if user_id:
+                        conditions.append("w.user_id = %s")
+                        params.append(user_id)
+                    
+                    if watchlist_id:
+                        conditions.append("a.watchlist_id = %s")
+                        params.append(watchlist_id)
+                    
+                    if alert_type:
+                        conditions.append("a.rule = %s")
+                        params.append(alert_type)
+                    
+                    where_clause = " AND ".join(conditions) if conditions else "1=1"
+                    
+                    query = f"""
+                        SELECT a.id, a.watchlist_id, a.period, a.rule, a.score, 
+                               a.details_json, a.created_at, w.name as watchlist_name,
+                               w.user_id
+                        FROM alerts a
+                        LEFT JOIN watchlists w ON a.watchlist_id = w.id
+                        WHERE {where_clause}
+                        ORDER BY a.created_at DESC
+                        LIMIT %s
+                    """
+                    params.append(limit)
+                    
+                    cursor.execute(query, params)
+                    rows = cursor.fetchall()
+                    
+                    alerts = []
+                    for row in rows:
+                        alert = {
+                            'id': row[0],
+                            'watchlist_id': row[1],
+                            'period': row[2].strftime('%Y-%m-%d') if row[2] else None,
+                            'alert_type': row[3],
+                            'score': float(row[4]) if row[4] else 0,
+                            'details': row[5],
+                            'created_at': row[6].isoformat() if row[6] else None,
+                            'watchlist_name': row[7],
+                            'user_id': row[8]
+                        }
+                        # Extract message from details if available
+                        if alert['details'] and isinstance(alert['details'], dict):
+                            alert['message'] = alert['details'].get('message', '')
+                        alerts.append(alert)
+                    
+                    return {
+                        "success": True,
+                        "alerts": alerts,
+                        "count": len(alerts)
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Failed to get alerts: {e}")
+            return {"error": f"Failed to get alerts: {str(e)}"}
+
+
+# Initialize API client, database manager, watchlist manager, and alert manager
 census_api = CensusTradeAPI()
 db_manager = TradeDataManager(DATABASE_URL) if DATABASE_URL else None
 watchlist_manager = WatchlistManager(DATABASE_URL) if DATABASE_URL else None
+alert_manager = AlertManager(DATABASE_URL) if DATABASE_URL else None
 
 @app.route('/')
 def index():
@@ -508,8 +767,14 @@ def index():
         "message": "PortRadar API - U.S. Census Trade Data Tracker",
         "version": "1.0.0",
         "endpoints": {
-            "/trade-data": "GET - Fetch trade data",
-            "/health": "GET - Health check"
+            "/trade-data": "GET - Fetch trade data from Census API",
+            "/stored-data": "GET - Query stored trade data",
+            "/watchlists": "GET, POST - Manage watchlists",
+            "/watchlists/<id>": "PUT, DELETE - Update/delete specific watchlist",
+            "/alerts": "GET, POST - View and generate alerts",
+            "/health": "GET - Health check",
+            "/test-db": "GET - Test database connectivity",
+            "/test-api": "GET - Test Census API with sample data"
         }
     })
 
@@ -811,6 +1076,78 @@ def delete_watchlist(watchlist_id):
         status_code = 404 if "not found" in result["error"].lower() else \
                      403 if "access denied" in result["error"].lower() else 500
         return jsonify(result), status_code
+    
+    return jsonify(result)
+
+@app.route('/alerts', methods=['POST'])
+def generate_alerts():
+    """
+    Generate alerts for watchlists
+    
+    JSON Body (optional):
+    - user_id: Generate alerts for specific user's watchlists
+    - watchlist_id: Generate alerts for specific watchlist
+    """
+    if not alert_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        watchlist_id = data.get('watchlist_id')
+        
+        if watchlist_id:
+            try:
+                watchlist_id = int(watchlist_id)
+            except ValueError:
+                return jsonify({"error": "Invalid watchlist ID"}), 400
+        
+        result = alert_manager.generate_alerts(watchlist_id, user_id)
+        
+        if "error" in result:
+            return jsonify(result), 500
+        
+        return jsonify(result), 201
+        
+    except Exception as e:
+        logger.error(f"Failed to generate alerts: {e}")
+        return jsonify({"error": "Failed to generate alerts"}), 500
+
+@app.route('/alerts', methods=['GET'])
+def get_alerts():
+    """
+    Get alerts
+    
+    Query parameters:
+    - user_id (optional): Get alerts for specific user
+    - watchlist_id (optional): Get alerts for specific watchlist
+    - alert_type (optional): Filter by alert type ('mom_change', 'volume_threshold')
+    - limit (optional): Max records to return (default: 100)
+    """
+    if not alert_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    user_id = request.args.get('user_id')
+    watchlist_id = request.args.get('watchlist_id')
+    alert_type = request.args.get('alert_type')
+    limit = int(request.args.get('limit', 100))
+    
+    if watchlist_id:
+        try:
+            watchlist_id = int(watchlist_id)
+        except ValueError:
+            return jsonify({"error": "Invalid watchlist ID"}), 400
+    
+    if alert_type and alert_type not in ['mom_change', 'volume_threshold']:
+        return jsonify({"error": "Invalid alert_type. Must be 'mom_change' or 'volume_threshold'"}), 400
+    
+    if limit > 1000:
+        return jsonify({"error": "limit cannot exceed 1000"}), 400
+    
+    result = alert_manager.get_alerts(user_id, watchlist_id, alert_type, limit)
+    
+    if "error" in result:
+        return jsonify(result), 500
     
     return jsonify(result)
 

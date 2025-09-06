@@ -143,6 +143,76 @@ def test_flask_endpoints():
             print(f"✅ Success! Found {count} watchlists")
         else:
             print(f"❌ Failed: {response.data}")
+            
+        # Test 11: Generate alerts
+        print("\nTest 11: POST /alerts")
+        alert_data = {
+            "user_id": "test_user",
+            "watchlist_id": watchlist_id if 'watchlist_id' in locals() else None
+        }
+        response = client.post('/alerts', 
+                               json=alert_data, 
+                               headers={'Content-Type': 'application/json'})
+        print(f"Status: {response.status_code}")
+        if response.status_code == 201:
+            data = response.get_json()
+            alerts_count = data.get('alerts_generated', 0)
+            print(f"✅ Success! Generated {alerts_count} alerts")
+        else:
+            print(f"❌ Failed: {response.data}")
+            
+        # Test 12: Get alerts
+        print("\nTest 12: GET /alerts")
+        response = client.get('/alerts?user_id=test_user&limit=5')
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.get_json()
+            count = data.get('count', 0)
+            print(f"✅ Success! Found {count} alerts")
+            if count > 0:
+                sample = data['alerts'][0]
+                print(f"   Sample: {sample.get('alert_type')} - {sample.get('message', 'N/A')[:50]}...")
+        else:
+            print(f"❌ Failed: {response.data}")
+            
+        # Test 13: Update watchlist with alert rules
+        print("\nTest 13: PUT /watchlists/<id>")
+        if 'watchlist_id' in locals():
+            update_data = {
+                "name": "Updated Test Watchlist",
+                "rules": {
+                    "mom_change_threshold": 30.0,
+                    "volume_threshold": 1000000
+                }
+            }
+            response = client.put(f'/watchlists/{watchlist_id}',
+                                json=update_data,
+                                headers={'Content-Type': 'application/json'})
+            print(f"Status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.get_json()
+                if data.get('success') and 'watchlist' in data:
+                    rules = data['watchlist'].get('rules', {})
+                    print(f"✅ Success! Updated rules: {rules}")
+                else:
+                    print(f"✅ Success! Updated watchlist")
+            else:
+                print(f"❌ Failed: {response.data}")
+        else:
+            print("⏭️ Skipping - no watchlist ID available")
+            
+        # Test 14: Delete watchlist (cleanup)
+        print("\nTest 14: DELETE /watchlists/<id>")
+        if 'watchlist_id' in locals():
+            response = client.delete(f'/watchlists/{watchlist_id}?user_id=test_user')
+            print(f"Status: {response.status_code}")
+            if response.status_code == 200:
+                data = response.get_json()
+                print(f"✅ Success! {data.get('message', 'Watchlist deleted')}")
+            else:
+                print(f"❌ Failed: {response.data}")
+        else:
+            print("⏭️ Skipping - no watchlist ID available")
     
     print("\n" + "=" * 50)
     print("Flask endpoint testing completed!")
