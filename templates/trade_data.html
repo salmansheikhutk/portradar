@@ -320,7 +320,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/stored-data?limit=1000');
             const data = await response.json();
             
+            console.log('API Response:', data); // Debug log
+            
             if (data.success && data.data && data.data.length > 0) {
+                console.log('Found data records:', data.data.length); // Debug log
                 // Map the database response to expected format
                 tradeData = data.data.map(record => ({
                     trade_type: record.flow,
@@ -338,10 +341,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateCharts();
                 updateDataTable();
             } else {
+                console.log('No data found or API failed:', data); // Debug log
                 // Show empty state with helpful message
                 showEmptyState();
             }
         } catch (error) {
+            console.error('API Error:', error); // Debug log
             showError('Error loading trade data: ' + error.message);
         } finally {
             showLoading(false);
@@ -383,17 +388,17 @@ document.addEventListener('DOMContentLoaded', function() {
     window.fetchSampleData = async function() {
         try {
             showLoading(true);
-            // Fetch some sample trade data
-            const response = await fetch('/trade-data?hs6_codes=850760&time_period=2024-01');
+            // Fetch some sample trade data using the correct endpoint
+            const response = await fetch('/trade-data?hs6=850760&time_from=2024-01&trade_type=imports');
             const data = await response.json();
             
             if (data.success) {
-                showSuccess('Sample data fetched! Refreshing page...');
+                showSuccess('Sample data fetched and stored! Refreshing page...');
                 setTimeout(() => {
                     location.reload();
                 }, 2000);
             } else {
-                showError('Failed to fetch sample data: ' + (data.message || data.error));
+                showError('Failed to fetch sample data: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
             showError('Error fetching sample data: ' + error.message);
@@ -405,16 +410,26 @@ document.addEventListener('DOMContentLoaded', function() {
     window.fetchRealData = async function() {
         try {
             showLoading(true);
-            const response = await fetch('/trade-data?hs6_codes=850440,854230,847130&time_period=2024-01,2024-02,2024-03');
-            const data = await response.json();
             
-            if (data.success) {
-                showSuccess('Real data fetched! Refreshing page...');
+            // Fetch and store multiple commodities 
+            const commodities = ['850760', '850440', '854230'];
+            const promises = commodities.map(hs6 => 
+                fetch(`/trade-data?hs6=${hs6}&time_from=2024-01&trade_type=imports`)
+            );
+            
+            const responses = await Promise.all(promises);
+            const results = await Promise.all(responses.map(r => r.json()));
+            
+            const successCount = results.filter(r => r.success).length;
+            
+            if (successCount > 0) {
+                showSuccess(`Successfully fetched and stored data for ${successCount} commodities! Refreshing...`);
+                // Wait a bit then reload to show stored data
                 setTimeout(() => {
                     location.reload();
                 }, 2000);
             } else {
-                showError('Failed to fetch real data: ' + (data.message || data.error));
+                showError('Failed to fetch any commodity data: ' + (results[0].error || 'Unknown error'));
             }
         } catch (error) {
             showError('Error fetching real data: ' + error.message);
