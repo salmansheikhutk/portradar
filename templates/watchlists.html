@@ -178,15 +178,33 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="hs6Codes" class="form-label">HS6 Commodity Codes</label>
-                            <textarea class="form-control" id="hs6Codes" rows="3" required 
-                                      placeholder="e.g., 850440,854230,847130"></textarea>
+                            <div class="input-group">
+                                <textarea class="form-control" id="hs6Codes" rows="3" required 
+                                          placeholder="Type to search commodities..."></textarea>
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        data-bs-toggle="modal" data-bs-target="#commoditySearchModal">
+                                    <i class="bi bi-search"></i> Browse
+                                </button>
+                            </div>
                             <div class="form-text">Enter HS6 codes separated by commas</div>
+                            <div id="selectedCommodities" class="mt-2">
+                                <!-- Selected commodities will appear here -->
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label for="portCodes" class="form-label">Port Codes</label>
-                            <textarea class="form-control" id="portCodes" rows="3" 
-                                      placeholder="e.g., 2704,4601,5301"></textarea>
+                            <div class="input-group">
+                                <textarea class="form-control" id="portCodes" rows="3" 
+                                          placeholder="Type to search ports..."></textarea>
+                                <button class="btn btn-outline-secondary" type="button"
+                                        data-bs-toggle="modal" data-bs-target="#portSearchModal">
+                                    <i class="bi bi-search"></i> Browse
+                                </button>
+                            </div>
                             <div class="form-text">Enter port codes separated by commas (optional)</div>
+                            <div id="selectedPorts" class="mt-2">
+                                <!-- Selected ports will appear here -->
+                            </div>
                         </div>
                     </div>
 
@@ -222,6 +240,100 @@
                 <button type="button" class="btn btn-primary" id="saveWatchlist">
                     <i class="bi bi-check-circle"></i> Create Watchlist
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Commodity Search Modal -->
+<div class="modal fade" id="commoditySearchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-search"></i> Search Commodities</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="commoditySearchInput" 
+                           placeholder="Search by commodity name or HS6 code...">
+                </div>
+                <div class="mb-3">
+                    <h6>Popular Commodities:</h6>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge bg-secondary commodity-suggestion" data-hs6="850440">Electronic circuits</span>
+                        <span class="badge bg-secondary commodity-suggestion" data-hs6="847130">Portable computers</span>
+                        <span class="badge bg-secondary commodity-suggestion" data-hs6="854230">Electronic integrated circuits</span>
+                        <span class="badge bg-secondary commodity-suggestion" data-hs6="392690">Plastic articles</span>
+                        <span class="badge bg-secondary commodity-suggestion" data-hs6="620342">Cotton trousers</span>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>HS6 Code</th>
+                                <th>Description</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commoditySearchResults">
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">Type to search commodities...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Port Search Modal -->
+<div class="modal fade" id="portSearchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-search"></i> Search Ports</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="portSearchInput" 
+                           placeholder="Search by port name or code...">
+                </div>
+                <div class="mb-3">
+                    <h6>Major Ports:</h6>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge bg-secondary port-suggestion" data-port="2704">Los Angeles, CA</span>
+                        <span class="badge bg-secondary port-suggestion" data-port="4601">New York, NY</span>
+                        <span class="badge bg-secondary port-suggestion" data-port="5301">Long Beach, CA</span>
+                        <span class="badge bg-secondary port-suggestion" data-port="2002">San Francisco, CA</span>
+                        <span class="badge bg-secondary port-suggestion" data-port="1001">Miami, FL</span>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Port Code</th>
+                                <th>Port Name</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portSearchResults">
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">Type to search ports...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -598,6 +710,176 @@ document.addEventListener('DOMContentLoaded', function() {
         );
         renderWatchlists(filteredWatchlists);
     });
+
+    // Commodity search functionality
+    let commoditySearchTimeout;
+    document.getElementById('commoditySearchInput').addEventListener('input', function() {
+        clearTimeout(commoditySearchTimeout);
+        commoditySearchTimeout = setTimeout(() => {
+            searchCommodities(this.value);
+        }, 300);
+    });
+
+    // Port search functionality
+    let portSearchTimeout;
+    document.getElementById('portSearchInput').addEventListener('input', function() {
+        clearTimeout(portSearchTimeout);
+        portSearchTimeout = setTimeout(() => {
+            searchPorts(this.value);
+        }, 300);
+    });
+
+    // Commodity suggestions
+    document.querySelectorAll('.commodity-suggestion').forEach(badge => {
+        badge.addEventListener('click', function() {
+            const hs6 = this.getAttribute('data-hs6');
+            const description = this.textContent;
+            addCommodityToWatchlist(hs6, description);
+        });
+    });
+
+    // Port suggestions
+    document.querySelectorAll('.port-suggestion').forEach(badge => {
+        badge.addEventListener('click', function() {
+            const portCode = this.getAttribute('data-port');
+            const portName = this.textContent;
+            addPortToWatchlist(portCode, portName);
+        });
+    });
+
+    async function searchCommodities(searchTerm) {
+        if (!searchTerm || searchTerm.length < 2) {
+            document.getElementById('commoditySearchResults').innerHTML = 
+                '<tr><td colspan="3" class="text-center text-muted">Type at least 2 characters to search...</td></tr>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/commodity-lookup?search=${encodeURIComponent(searchTerm)}&limit=50`);
+            const data = await response.json();
+            
+            if (data.success && data.commodities.length > 0) {
+                const resultsHtml = data.commodities.map(commodity => `
+                    <tr>
+                        <td><code>${commodity.hs6_code}</code></td>
+                        <td>${commodity.commodity_description || 'N/A'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                    onclick="addCommodityToWatchlist('${commodity.hs6_code}', '${(commodity.commodity_description || '').replace(/'/g, "\\'")}')">
+                                <i class="bi bi-plus"></i> Add
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                document.getElementById('commoditySearchResults').innerHTML = resultsHtml;
+            } else {
+                document.getElementById('commoditySearchResults').innerHTML = 
+                    '<tr><td colspan="3" class="text-center text-muted">No commodities found</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error searching commodities:', error);
+            document.getElementById('commoditySearchResults').innerHTML = 
+                '<tr><td colspan="3" class="text-center text-danger">Error searching commodities</td></tr>';
+        }
+    }
+
+    async function searchPorts(searchTerm) {
+        if (!searchTerm || searchTerm.length < 2) {
+            document.getElementById('portSearchResults').innerHTML = 
+                '<tr><td colspan="3" class="text-center text-muted">Type at least 2 characters to search...</td></tr>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/port-lookup?search=${encodeURIComponent(searchTerm)}&limit=50`);
+            const data = await response.json();
+            
+            if (data.success && data.ports.length > 0) {
+                const resultsHtml = data.ports.map(port => `
+                    <tr>
+                        <td><code>${port.port_code}</code></td>
+                        <td>${port.port_name || 'N/A'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                    onclick="addPortToWatchlist('${port.port_code}', '${(port.port_name || '').replace(/'/g, "\\'")}')">
+                                <i class="bi bi-plus"></i> Add
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                document.getElementById('portSearchResults').innerHTML = resultsHtml;
+            } else {
+                document.getElementById('portSearchResults').innerHTML = 
+                    '<tr><td colspan="3" class="text-center text-muted">No ports found</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error searching ports:', error);
+            document.getElementById('portSearchResults').innerHTML = 
+                '<tr><td colspan="3" class="text-center text-danger">Error searching ports</td></tr>';
+        }
+    }
+
+    window.addCommodityToWatchlist = function(hs6Code, description) {
+        const hs6Input = document.getElementById('hs6Codes');
+        const currentCodes = hs6Input.value.split(',').map(s => s.trim()).filter(s => s);
+        
+        if (!currentCodes.includes(hs6Code)) {
+            currentCodes.push(hs6Code);
+            hs6Input.value = currentCodes.join(', ');
+            
+            // Add visual indicator
+            const selectedDiv = document.getElementById('selectedCommodities');
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-info me-2 mb-2';
+            badge.innerHTML = `${hs6Code} - ${description} <i class="bi bi-x" onclick="removeCommodity('${hs6Code}')" style="cursor: pointer;"></i>`;
+            badge.id = `commodity-${hs6Code}`;
+            selectedDiv.appendChild(badge);
+        }
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('commoditySearchModal')).hide();
+    };
+
+    window.addPortToWatchlist = function(portCode, portName) {
+        const portInput = document.getElementById('portCodes');
+        const currentCodes = portInput.value.split(',').map(s => s.trim()).filter(s => s);
+        
+        if (!currentCodes.includes(portCode)) {
+            currentCodes.push(portCode);
+            portInput.value = currentCodes.join(', ');
+            
+            // Add visual indicator
+            const selectedDiv = document.getElementById('selectedPorts');
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-success me-2 mb-2';
+            badge.innerHTML = `${portCode} - ${portName} <i class="bi bi-x" onclick="removePort('${portCode}')" style="cursor: pointer;"></i>`;
+            badge.id = `port-${portCode}`;
+            selectedDiv.appendChild(badge);
+        }
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('portSearchModal')).hide();
+    };
+
+    window.removeCommodity = function(hs6Code) {
+        const hs6Input = document.getElementById('hs6Codes');
+        const currentCodes = hs6Input.value.split(',').map(s => s.trim()).filter(s => s);
+        const filteredCodes = currentCodes.filter(code => code !== hs6Code);
+        hs6Input.value = filteredCodes.join(', ');
+        
+        const badge = document.getElementById(`commodity-${hs6Code}`);
+        if (badge) badge.remove();
+    };
+
+    window.removePort = function(portCode) {
+        const portInput = document.getElementById('portCodes');
+        const currentCodes = portInput.value.split(',').map(s => s.trim()).filter(s => s);
+        const filteredCodes = currentCodes.filter(code => code !== portCode);
+        portInput.value = filteredCodes.join(', ');
+        
+        const badge = document.getElementById(`port-${portCode}`);
+        if (badge) badge.remove();
+    };
 
     // Utility functions
     function showLoading() {

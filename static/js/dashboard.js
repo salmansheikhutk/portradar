@@ -418,3 +418,34 @@ async function showHealthStatus() {
 function editWatchlist(watchlistId) {
     showAlert(`Edit watchlist ${watchlistId} - Coming soon!`, 'info');
 }
+
+// Load sample data function
+window.loadSampleData = async function() {
+    try {
+        showAlert('Loading sample trade data...', 'info');
+        const response = await fetch('/trade-data?hs6_codes=850440,847130,854230&time_period=2024-01');
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('Sample trade data loaded successfully! Refreshing dashboard...', 'success');
+            // Refresh the dashboard after a short delay
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            showAlert('Failed to load sample data: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        showAlert('Error loading sample data: ' + error.message, 'danger');
+    }
+};
+
+// Initialize tooltips for badges if Bootstrap is available
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});

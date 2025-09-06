@@ -90,25 +90,41 @@
 <!-- Main Content Row -->
 <div class="row">
     <!-- Recent Alerts -->
-    <div class="col-lg-8 mb-4">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0"><i class="bi bi-bell"></i> Recent Alerts</h5>
-                <a href="{{ url_for('alerts_page') }}" class="btn btn-sm btn-outline-primary">View All</a>
-            </div>
-            <div class="card-body">
-                <div id="recent-alerts" class="table-responsive">
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Quick Reference</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Popular HS6 Commodity Codes:</h6>
+                            <div class="d-flex flex-wrap gap-1 mb-3">
+                                <span class="badge bg-secondary" title="Electronic circuits">850440</span>
+                                <span class="badge bg-secondary" title="Portable computers">847130</span>
+                                <span class="badge bg-secondary" title="Electronic integrated circuits">854230</span>
+                                <span class="badge bg-secondary" title="Plastic articles">392690</span>
+                                <span class="badge bg-secondary" title="Cotton trousers">620342</span>
+                            </div>
+                            
+                            <h6>Major U.S. Ports:</h6>
+                            <div class="d-flex flex-wrap gap-1 mb-3">
+                                <span class="badge bg-success" title="Los Angeles, CA">2704</span>
+                                <span class="badge bg-success" title="New York, NY">4601</span>
+                                <span class="badge bg-success" title="Long Beach, CA">5301</span>
+                                <span class="badge bg-success" title="San Francisco, CA">2002</span>
+                                <span class="badge bg-success" title="Miami, FL">1001</span>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <a href="/trade-data-page" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-graph-up"></i> Explore Trade Data
+                                </a>
+                                <button class="btn btn-sm btn-outline-success" onclick="loadSampleData()">
+                                    <i class="bi bi-download"></i> Load Sample Data
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Quick Actions -->
+                </div>    <!-- Quick Actions -->
     <div class="col-lg-4 mb-4">
         <div class="card">
             <div class="card-header">

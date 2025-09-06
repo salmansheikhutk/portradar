@@ -799,6 +799,106 @@ def alerts_page():
     """Alerts monitoring page"""
     return render_template('alerts.html')
 
+@app.route('/commodity-lookup', methods=['GET'])
+def commodity_lookup():
+    """Search for commodity codes by description"""
+    try:
+        search_term = request.args.get('search', '').lower()
+        limit = int(request.args.get('limit', 20))
+        
+        conn = psycopg.connect(
+            host=os.getenv('DB_HOST', 'localhost'),
+            port=int(os.getenv('DB_PORT', 5432)),
+            dbname=os.getenv('DB_NAME'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD')
+        )
+        cursor = conn.cursor()
+        
+        # Search in both HS6 codes and commodity descriptions
+        query = """
+        SELECT DISTINCT hs6_code, commodity_description
+        FROM trade_data 
+        WHERE LOWER(commodity_description) LIKE %s 
+           OR hs6_code::text LIKE %s
+        ORDER BY hs6_code
+        LIMIT %s
+        """
+        
+        search_pattern = f"%{search_term}%"
+        cursor.execute(query, (search_pattern, search_pattern, limit))
+        rows = cursor.fetchall()
+        
+        # Convert to dictionary format
+        commodities = []
+        for row in rows:
+            commodities.append({
+                'hs6_code': row[0],
+                'commodity_description': row[1]
+            })
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "commodities": commodities,
+            "count": len(commodities)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in commodity lookup: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/port-lookup', methods=['GET'])
+def port_lookup():
+    """Search for port codes by name"""
+    try:
+        search_term = request.args.get('search', '').lower()
+        limit = int(request.args.get('limit', 20))
+        
+        conn = psycopg.connect(
+            host=os.getenv('DB_HOST', 'localhost'),
+            port=int(os.getenv('DB_PORT', 5432)),
+            dbname=os.getenv('DB_NAME'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD')
+        )
+        cursor = conn.cursor()
+        
+        # Search in both port codes and port names
+        query = """
+        SELECT DISTINCT port_code, port_name
+        FROM ports 
+        WHERE LOWER(port_name) LIKE %s 
+           OR port_code::text LIKE %s
+        ORDER BY port_code
+        LIMIT %s
+        """
+        
+        search_pattern = f"%{search_term}%"
+        cursor.execute(query, (search_pattern, search_pattern, limit))
+        rows = cursor.fetchall()
+        
+        # Convert to dictionary format
+        ports = []
+        for row in rows:
+            ports.append({
+                'port_code': row[0],
+                'port_name': row[1]
+            })
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "ports": ports,
+            "count": len(ports)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in port lookup: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""

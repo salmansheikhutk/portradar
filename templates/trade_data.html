@@ -320,14 +320,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/stored-data?limit=1000');
             const data = await response.json();
             
-            if (data.success) {
+            if (data.success && data.trade_data && data.trade_data.length > 0) {
                 tradeData = data.trade_data;
                 filteredData = [...tradeData];
                 updateStatistics();
                 updateCharts();
                 updateDataTable();
             } else {
-                showError('Failed to load trade data: ' + data.message);
+                // Show empty state with helpful message
+                showEmptyState();
             }
         } catch (error) {
             showError('Error loading trade data: ' + error.message);
@@ -335,6 +336,57 @@ document.addEventListener('DOMContentLoaded', function() {
             showLoading(false);
         }
     }
+
+    function showEmptyState() {
+        const tbody = document.getElementById('dataTableBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" class="text-center py-5">
+                    <i class="bi bi-inbox display-4 text-muted"></i>
+                    <h4 class="text-muted mt-3">No Trade Data Available</h4>
+                    <p class="text-muted">Load some trade data first by using the API endpoints</p>
+                    <div class="mt-3">
+                        <button class="btn btn-primary me-2" onclick="fetchSampleData()">
+                            <i class="bi bi-download"></i> Fetch Sample Data
+                        </button>
+                        <a href="/dashboard" class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </td>
+            </tr>
+        `;
+        
+        // Set empty statistics
+        document.getElementById('totalRecords').textContent = '0';
+        document.getElementById('totalValue').textContent = '$0';
+        document.getElementById('totalQuantity').textContent = '0';
+        document.getElementById('uniquePorts').textContent = '0';
+        document.getElementById('recordInfo').textContent = 'No records found';
+        document.getElementById('pagination').innerHTML = '';
+    }
+
+    window.fetchSampleData = async function() {
+        try {
+            showLoading(true);
+            // Fetch some sample trade data
+            const response = await fetch('/trade-data?hs6_codes=850440&time_period=2024-01');
+            const data = await response.json();
+            
+            if (data.success) {
+                showSuccess('Sample data fetched! Refreshing page...');
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showError('Failed to fetch sample data: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error fetching sample data: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    };
 
     function updateStatistics() {
         const data = filteredData;
@@ -428,7 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Port Chart
         const portCtx = document.getElementById('portChart').getContext('2d');
         charts.port = new Chart(portCtx, {
-            type: 'horizontalBar',
+            type: 'bar',
             data: {
                 labels: [],
                 datasets: [{
@@ -440,6 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                indexAxis: 'y',
                 plugins: {
                     legend: {
                         display: false
