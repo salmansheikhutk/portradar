@@ -61,13 +61,13 @@ class CensusTradeAPI:
                 params = {
                     'get': 'PORT,PORT_NAME,I_COMMODITY,I_COMMODITY_LDESC,GEN_VAL_MO',
                     'I_COMMODITY': hs6_code,
-                    'time': time_from if time_from else "2024-01"
+                    'time': time_from if time_from else "2025-06"
                 }
             else:  # exports
                 params = {
                     'get': 'PORT,PORT_NAME,E_COMMODITY,E_COMMODITY_LDESC,ALL_VAL_MO',
                     'E_COMMODITY': hs6_code,
-                    'time': time_from if time_from else "2024-01"
+                    'time': time_from if time_from else "2025-06"
                 }
             
             if port_code:
@@ -927,7 +927,7 @@ def get_trade_data():
     """
     # Get query parameters
     hs6_code = request.args.get('hs6')
-    time_from = request.args.get('time_from', '2024-01')
+    time_from = request.args.get('time_from', '2025-06')
     port_code = request.args.get('port_code')
     trade_type = request.args.get('trade_type', 'imports')
     
@@ -975,9 +975,76 @@ def get_trade_data():
 @app.route('/test-api')
 def test_api():
     """Test endpoint with sample data"""
-    # Test with HS6 850760 (example from requirements)
-    result = census_api.fetch_trade_data('850760', '2024-01', trade_type='imports')
+    # Test with HS6 850760 with more recent data
+    result = census_api.fetch_trade_data('850760', '2025-06', trade_type='imports')
     return jsonify(result)
+
+@app.route('/refresh-data')
+def refresh_current_data():
+    """Fetch and store current trade data for popular commodities"""
+    if not db_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        # Popular commodity codes to refresh
+        popular_commodities = [
+            '850760',  # Lithium ion batteries
+            '850440',  # Static converters  
+            '854230',  # Electronic integrated circuits
+            '847130',  # Portable digital computers
+            '851712',  # Telephones for cellular networks
+            '300490',  # Medicaments (pharmaceutical products)
+            '870323',  # Motor cars (1500-3000cc)
+        ]
+        
+        # Recent time periods to fetch (accounting for data lag)
+        time_periods = ['2025-06', '2025-05', '2025-04', '2025-03']
+        
+        results = []
+        for hs6 in popular_commodities:
+            for time_period in time_periods:
+                logger.info(f"Fetching current data for HS6 {hs6}, period {time_period}")
+                
+                # Fetch imports
+                import_result = census_api.fetch_trade_data(hs6, time_period, trade_type='imports')
+                if import_result.get('success') and import_result.get('data'):
+                    store_result = db_manager.store_trade_data(
+                        import_result['data'], 'imports', hs6, time_period
+                    )
+                    results.append({
+                        'hs6': hs6,
+                        'period': time_period,
+                        'type': 'imports',
+                        'records': len(import_result['data']),
+                        'stored': store_result.get('stored_count', 0)
+                    })
+                
+                # Fetch exports  
+                export_result = census_api.fetch_trade_data(hs6, time_period, trade_type='exports')
+                if export_result.get('success') and export_result.get('data'):
+                    store_result = db_manager.store_trade_data(
+                        export_result['data'], 'exports', hs6, time_period
+                    )
+                    results.append({
+                        'hs6': hs6,
+                        'period': time_period,
+                        'type': 'exports', 
+                        'records': len(export_result['data']),
+                        'stored': store_result.get('stored_count', 0)
+                    })
+        
+        total_stored = sum(r['stored'] for r in results)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully refreshed data for {len(popular_commodities)} commodities',
+            'total_records_stored': total_stored,
+            'details': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to refresh current data: {e}")
+        return jsonify({"error": f"Failed to refresh data: {str(e)}"}), 500
 
 @app.route('/stored-data')
 def get_stored_data():
