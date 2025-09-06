@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Trade Data</title>
+</head>
+<body>
+    <h1>Debug Trade Data API</h1>
+    <button onclick="testAPI()">Test API Call</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            console.log('Starting API test...');
+            document.getElementById('result').innerHTML = 'Loading...';
+            
+            try {
+                console.log('Making fetch request to /stored-data...');
+                const response = await fetch('/stored-data?limit=5');
+                console.log('Response received:', response.status);
+                
+                const data = await response.json();
+                console.log('Data parsed:', data);
+                
+                document.getElementById('result').innerHTML = 
+                    '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            console.log('Page loaded, testing API...');
+            testAPI();
+        };
+    </script>
+</body>
+</html>

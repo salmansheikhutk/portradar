@@ -299,7 +299,7 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -311,14 +311,20 @@ document.addEventListener('DOMContentLoaded', function() {
     let charts = {};
 
     // Initialize page
+    console.log('Initializing trade data page...');
     loadTradeData();
     initializeCharts();
 
     async function loadTradeData() {
+        console.log('loadTradeData function called');
         try {
+            console.log('About to show loading...');
             showLoading(true);
+            console.log('Making fetch request to /stored-data...');
             const response = await fetch('/stored-data?limit=1000');
+            console.log('Response received:', response.status);
             const data = await response.json();
+            console.log('Data parsed:', data);
             
             console.log('API Response:', data); // Debug log
             

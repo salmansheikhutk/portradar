@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Trade Data - Simple{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>Trade Data - Simple Test</h2>
+    <div id="status">Loading...</div>
+    <div id="data-output"></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, starting data fetch...');
+    
+    async function loadData() {
+        try {
+            console.log('Making API call...');
+            document.getElementById('status').innerHTML = 'Calling API...';
+            
+            const response = await fetch('/stored-data?limit=10');
+            console.log('API response status:', response.status);
+            
+            const data = await response.json();
+            console.log('API data:', data);
+            
+            if (data.success && data.data) {
+                document.getElementById('status').innerHTML = 'Success! Found ' + data.data.length + ' records';
+                document.getElementById('data-output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } else {
+                document.getElementById('status').innerHTML = 'No data found';
+                document.getElementById('data-output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('status').innerHTML = 'Error: ' + error.message;
+        }
+    }
+    
+    loadData();
+});
+</script>
+{% endblock %}

@@ -799,6 +799,16 @@ def alerts_page():
     """Alerts monitoring page"""
     return render_template('alerts.html')
 
+@app.route('/debug')
+def debug_page():
+    """Debug page for testing API calls"""
+    return render_template('debug.html')
+
+@app.route('/trade-simple')
+def trade_simple_page():
+    """Simple trade data page for testing"""
+    return render_template('trade_simple.html')
+
 @app.route('/commodity-lookup', methods=['GET'])
 def commodity_lookup():
     """Search for commodity codes by description"""
