@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 import requests
 import os
 from datetime import datetime
@@ -774,9 +774,30 @@ def index():
             "/alerts": "GET, POST - View and generate alerts",
             "/health": "GET - Health check",
             "/test-db": "GET - Test database connectivity",
-            "/test-api": "GET - Test Census API with sample data"
+            "/test-api": "GET - Test Census API with sample data",
+            "/dashboard": "GET - Web dashboard interface"
         }
     })
+
+@app.route('/dashboard')
+def dashboard():
+    """Main dashboard page"""
+    return render_template('dashboard.html')
+
+@app.route('/watchlists-page')
+def watchlists_page():
+    """Watchlists management page"""
+    return render_template('watchlists.html')
+
+@app.route('/trade-data-page')
+def trade_data_page():
+    """Trade data search page"""
+    return render_template('trade_data.html')
+
+@app.route('/alerts-page')
+def alerts_page():
+    """Alerts monitoring page"""
+    return render_template('alerts.html')
 
 @app.route('/health')
 def health():

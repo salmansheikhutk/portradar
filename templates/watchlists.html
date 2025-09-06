@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Watchlists - PortRadar{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2"><i class="bi bi-binoculars"></i> Watchlists Manager</h1>
+        <p class="text-muted">Create and manage your trade data watchlists</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-hammer fs-1 text-muted"></i>
+                <h3 class="mt-3">Coming Soon</h3>
+                <p class="text-muted">Advanced watchlist management interface is under development.</p>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
