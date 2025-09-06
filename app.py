@@ -1159,8 +1159,8 @@ def get_stored_data():
         except ValueError:
             return jsonify({"error": "start_period must be in YYYY-MM format"}), 400
     
-    if limit > 1000:
-        return jsonify({"error": "limit cannot exceed 1000"}), 400
+    if limit > 10000:
+        return jsonify({"error": "limit cannot exceed 10000"}), 400
     
     # Query database
     result = db_manager.get_trade_data(hs6_code, port_code, flow_type, start_period, limit)

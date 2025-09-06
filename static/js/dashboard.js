@@ -398,19 +398,25 @@ async function loadQuickReference() {
         const response = await apiCall('/quick-reference');
         
         if (response.success) {
-            // Update commodity badges
+            // Update commodity badges with names and click handlers
             const commodityContainer = document.getElementById('commodity-badges');
             if (commodityContainer && response.commodities && response.commodities.length > 0) {
                 commodityContainer.innerHTML = response.commodities.map(item => 
-                    `<span class="badge bg-secondary" title="${item.description}">${item.code}</span>`
+                    `<span class="badge bg-secondary clickable-badge" 
+                           title="${item.description}" 
+                           data-hs6="${item.code}"
+                           onclick="searchByHS6('${item.code}')">${item.description ? item.description.substring(0, 30) + '...' : item.code}</span>`
                 ).join('');
             }
             
-            // Update port badges  
+            // Update port badges with names and click handlers
             const portContainer = document.getElementById('port-badges');
             if (portContainer && response.ports && response.ports.length > 0) {
                 portContainer.innerHTML = response.ports.map(item =>
-                    `<span class="badge bg-success" title="${item.name}">${item.code}</span>`
+                    `<span class="badge bg-success clickable-badge" 
+                           title="${item.name}" 
+                           data-port="${item.code}"
+                           onclick="searchByPort('${item.code}')">${item.name || item.code}</span>`
                 ).join('');
             }
             
@@ -455,6 +461,17 @@ function editWatchlist(watchlistId) {
     showAlert(`Edit watchlist ${watchlistId} - Coming soon!`, 'info');
 }
 
+// Search functions for quick reference badges
+function searchByHS6(hs6Code) {
+    // Redirect to trade data page with HS6 filter
+    window.location.href = `/trade-data-page?hs6=${hs6Code}`;
+}
+
+function searchByPort(portCode) {
+    // Redirect to trade data page with port filter
+    window.location.href = `/trade-data-page?port=${portCode}`;
+}
+
 // Load sample data function
 window.loadSampleData = async function() {
     try {
@@ -475,42 +492,6 @@ window.loadSampleData = async function() {
         showAlert('Error loading sample data: ' + error.message, 'danger');
     }
 };
-
-// Load quick reference data
-async function loadQuickReference() {
-    try {
-        const response = await apiCall('/quick-reference');
-        
-        if (response.success) {
-            // Update commodity badges
-            const commodityContainer = document.getElementById('commodity-badges');
-            if (commodityContainer && response.commodities.length > 0) {
-                commodityContainer.innerHTML = response.commodities.map(commodity => 
-                    `<span class="badge bg-secondary" title="${commodity.description}">${commodity.code}</span>`
-                ).join('\n                                ');
-            }
-            
-            // Update port badges  
-            const portContainer = document.getElementById('port-badges');
-            if (portContainer && response.ports.length > 0) {
-                portContainer.innerHTML = response.ports.map(port =>
-                    `<span class="badge bg-success" title="${port.name}">${port.code}</span>`
-                ).join('\n                                ');
-            }
-            
-            // Reinitialize tooltips after updating content
-            if (typeof bootstrap !== 'undefined') {
-                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-                tooltipTriggerList.map(function (tooltipTriggerEl) {
-                    return new bootstrap.Tooltip(tooltipTriggerEl);
-                });
-            }
-        }
-    } catch (error) {
-        console.warn('Could not load quick reference data:', error.message);
-        // Fail silently - the static data will remain as fallback
-    }
-}
 
 // Initialize tooltips for badges if Bootstrap is available
 document.addEventListener('DOMContentLoaded', function() {

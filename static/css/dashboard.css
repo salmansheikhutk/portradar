@@ -42,6 +42,17 @@ body {
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
+/* Clickable badges styling */
+.clickable-badge {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.clickable-badge:hover {
+    transform: scale(1.05);
+    opacity: 0.8;
+}
+
 /* Metric cards styling */
 .card.bg-primary {
     background: var(--gradient-primary) !important;

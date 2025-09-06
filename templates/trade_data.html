@@ -24,12 +24,6 @@
     color: #dc3545;
     font-weight: bold;
 }
-.chart-container {
-    height: 400px;
-}
-.mini-chart {
-    height: 200px;
-}
 .loading-spinner {
     display: none;
 }
@@ -108,6 +102,8 @@
                         <div class="col-md-2">
                             <label for="yearFilter" class="form-label">Year</label>
                             <select class="form-select" id="yearFilter">
+                                <option value="">All Years</option>
+                                <option value="2025">2025</option>
                                 <option value="2024">2024</option>
                                 <option value="2023">2023</option>
                                 <option value="2022">2022</option>
@@ -131,64 +127,48 @@
         </div>
     </div>
 
-    <!-- Statistics Overview -->
+    <!-- Quick Stats and Data Management -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body text-center">
-                    <i class="bi bi-box display-4 mb-2"></i>
-                    <h3 class="mb-0" id="totalRecords">-</h3>
-                    <small>Total Records</small>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h4 class="text-primary mb-1" id="totalRecords">-</h4>
+                            <small class="text-muted">Records</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-success mb-1" id="totalValue">-</h4>
+                            <small class="text-muted">Total Value</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-info mb-1" id="avgValue">-</h4>
+                            <small class="text-muted">Avg Value</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
+        <div class="col-md-4">
+            <div class="card">
                 <div class="card-body text-center">
-                    <i class="bi bi-currency-dollar display-4 mb-2"></i>
-                    <h3 class="mb-0" id="totalValue">-</h3>
-                    <small>Total Value (USD)</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body text-center">
-                    <i class="bi bi-truck display-4 mb-2"></i>
-                    <h3 class="mb-0" id="totalQuantity">-</h3>
-                    <small>Total Quantity</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body text-center">
-                    <i class="bi bi-geo-alt display-4 mb-2"></i>
-                    <h3 class="mb-0" id="uniquePorts">-</h3>
-                    <small>Unique Ports</small>
+                    <button id="refreshDataBtn" class="btn btn-success">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Refresh Data
+                    </button>
+                    <div id="refreshStatus" class="mt-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Charts Section -->
+    <!-- Data Table -->
+    <div class="row">
+        <div class="col-12">
+
+    <!-- Data Management -->
     <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Trade Volume Trends</h5>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary active" data-chart="monthly">Monthly</button>
-                        <button class="btn btn-outline-primary" data-chart="quarterly">Quarterly</button>
-                        <button class="btn btn-outline-primary" data-chart="yearly">Yearly</button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <canvas id="volumeTrendChart" class="chart-container"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
+        <div class="col-md-12">
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">Data Management</h5>
@@ -199,39 +179,6 @@
               <div id="refreshStatus" class="mt-2"></div>
             </div>
           </div>
-        </div>
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Top Commodities</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="commodityChart" class="mini-chart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Port Analysis and Country Breakdown -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-geo-alt-fill"></i> Top Ports by Volume</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="portChart" class="mini-chart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-flag"></i> Country Analysis</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="countryChart" class="mini-chart"></canvas>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -315,7 +262,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let tradeData = [];
@@ -323,12 +269,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentFilters = {};
     let currentPage = 1;
     let pageSize = 50;
-    let charts = {};
 
     // Initialize page
     console.log('Initializing trade data page...');
     loadTradeData();
-    initializeCharts();
     loadPortOptions();
     loadCommodityOptions();
 
@@ -396,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('About to show loading...');
             showLoading(true);
             console.log('Making fetch request to /stored-data...');
-            const response = await fetch('/stored-data?limit=1000');
+            const response = await fetch('/stored-data?limit=5000');
             console.log('Response received:', response.status);
             const data = await response.json();
             console.log('Data parsed:', data);
@@ -419,7 +363,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }));
                 filteredData = [...tradeData];
                 updateStatistics();
-                updateCharts();
                 updateDataTable();
             } else {
                 console.log('No data found or API failed:', data); // Debug log
@@ -563,7 +506,6 @@ document.addEventListener('DOMContentLoaded', function() {
             tradeData = sampleData;
             filteredData = [...tradeData];
             updateStatistics();
-            updateCharts();
             updateDataTable();
             
             showSuccess('Sample data loaded successfully!');
@@ -583,235 +525,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalValue = data.reduce((sum, record) => sum + (parseFloat(record.trade_value) || 0), 0);
         document.getElementById('totalValue').textContent = '$' + (totalValue / 1000000).toFixed(1) + 'M';
         
-        const totalQuantity = data.reduce((sum, record) => sum + (parseFloat(record.quantity) || 0), 0);
-        document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString();
-        
-        const uniquePorts = new Set(data.map(record => record.port_code)).size;
-        document.getElementById('uniquePorts').textContent = uniquePorts.toString();
+        const avgValue = data.length > 0 ? totalValue / data.length : 0;
+        document.getElementById('avgValue').textContent = '$' + (avgValue / 1000).toFixed(0) + 'K';
     }
 
-    function initializeCharts() {
-        // Volume Trend Chart
-        const volumeCtx = document.getElementById('volumeTrendChart').getContext('2d');
-        charts.volumeTrend = new Chart(volumeCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Imports',
-                    data: [],
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }, {
-                    label: 'Exports',
-                    data: [],
-                    borderColor: '#17a2b8',
-                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Trade Value (USD)'
-                        }
-                    }
-                }
-            }
-        });
-
-        // Commodity Chart
-        const commodityCtx = document.getElementById('commodityChart').getContext('2d');
-        charts.commodity = new Chart(commodityCtx, {
-            type: 'doughnut',
-            data: {
-                labels: [],
-                datasets: [{
-                    data: [],
-                    backgroundColor: [
-                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
-                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            boxWidth: 12,
-                            font: {
-                                size: 10
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Port Chart
-        const portCtx = document.getElementById('portChart').getContext('2d');
-        charts.port = new Chart(portCtx, {
-            type: 'bar',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Trade Volume',
-                    data: [],
-                    backgroundColor: '#667eea'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // Country Chart
-        const countryCtx = document.getElementById('countryChart').getContext('2d');
-        charts.country = new Chart(countryCtx, {
-            type: 'bar',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Trade Value',
-                    data: [],
-                    backgroundColor: '#764ba2'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-    }
-
-    function updateCharts() {
+    function updateStatistics() {
         const data = filteredData;
         
-        // Update volume trend chart
-        const monthlyData = aggregateByMonth(data);
-        charts.volumeTrend.data.labels = Object.keys(monthlyData);
-        charts.volumeTrend.data.datasets[0].data = Object.values(monthlyData).map(d => d.imports);
-        charts.volumeTrend.data.datasets[1].data = Object.values(monthlyData).map(d => d.exports);
-        charts.volumeTrend.update();
-
-        // Update commodity chart
-        const commodityData = aggregateByHs6(data);
-        const topCommodities = Object.entries(commodityData)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 8);
-        charts.commodity.data.labels = topCommodities.map(([hs6]) => hs6);
-        charts.commodity.data.datasets[0].data = topCommodities.map(([,value]) => value);
-        charts.commodity.update();
-
-        // Update port chart
-        const portData = aggregateByPort(data);
-        const topPorts = Object.entries(portData)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 10);
-        charts.port.data.labels = topPorts.map(([port]) => port);
-        charts.port.data.datasets[0].data = topPorts.map(([,value]) => value);
-        charts.port.update();
-
-        // Update country chart
-        const countryData = aggregateByCountry(data);
-        const topCountries = Object.entries(countryData)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 10);
-        charts.country.data.labels = topCountries.map(([country]) => country);
-        charts.country.data.datasets[0].data = topCountries.map(([,value]) => value);
-        charts.country.update();
-    }
-
-    function aggregateByMonth(data) {
-        const monthly = {};
-        data.forEach(record => {
-            const date = new Date(record.month + '-01');
-            const key = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-            if (!monthly[key]) {
-                monthly[key] = { imports: 0, exports: 0 };
-            }
-            const value = parseFloat(record.trade_value) || 0;
-            if (record.trade_type === 'imports') {
-                monthly[key].imports += value;
-            } else {
-                monthly[key].exports += value;
-            }
-        });
-        return monthly;
-    }
-
-    function aggregateByHs6(data) {
-        const hs6Data = {};
-        data.forEach(record => {
-            const hs6 = record.hs6_code;
-            if (!hs6Data[hs6]) {
-                hs6Data[hs6] = 0;
-            }
-            hs6Data[hs6] += parseFloat(record.trade_value) || 0;
-        });
-        return hs6Data;
-    }
-
-    function aggregateByPort(data) {
-        const portData = {};
-        data.forEach(record => {
-            const port = record.port_code;
-            if (!portData[port]) {
-                portData[port] = 0;
-            }
-            portData[port] += parseFloat(record.trade_value) || 0;
-        });
-        return portData;
-    }
-
-    function aggregateByCountry(data) {
-        const countryData = {};
-        data.forEach(record => {
-            const country = record.country_code || 'Unknown';
-            if (!countryData[country]) {
-                countryData[country] = 0;
-            }
-            countryData[country] += parseFloat(record.trade_value) || 0;
-        });
-        return countryData;
+        document.getElementById('totalRecords').textContent = data.length.toLocaleString();
+        
+        const totalValue = data.reduce((sum, record) => sum + (parseFloat(record.trade_value) || 0), 0);
+        document.getElementById('totalValue').textContent = '$' + (totalValue / 1000000).toFixed(1) + 'M';
+        
+        const avgValue = data.length > 0 ? totalValue / data.length : 0;
+        document.getElementById('avgValue').textContent = '$' + (avgValue / 1000).toFixed(0) + 'K';
     }
 
     function updateDataTable() {
@@ -890,14 +617,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (tradeType !== 'both' && record.trade_type !== tradeType) return false;
             if (hs6Filter && record.hs6_code !== hs6Filter) return false; // Exact match for dropdown
             if (portFilter && record.port_code !== portFilter) return false; // Exact match for dropdown
-            if (monthFilter && !record.month.includes('-' + monthFilter + '-')) return false;
-            if (yearFilter && !record.month.includes(yearFilter)) return false;
+            
+            // Fix month filtering - data is in format "YYYY-MM"
+            if (monthFilter && !record.month.includes('-' + monthFilter)) return false;
+            if (yearFilter && !record.month.startsWith(yearFilter)) return false;
             return true;
         });
         
         currentPage = 1;
         updateStatistics();
-        updateCharts();
         updateDataTable();
         updateActiveFilters();
     };
