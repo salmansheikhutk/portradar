@@ -1084,6 +1084,92 @@ def get_quick_reference():
         logger.error(f"Failed to get quick reference: {e}")
         return jsonify({"error": f"Failed to get quick reference: {str(e)}"}), 500
 
+@app.route('/ports')
+def get_ports():
+    """Get available ports for dropdown"""
+    if not db_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        with psycopg.connect(db_manager.database_url) as conn:
+            with conn.cursor() as cursor:
+                # Get ports ordered by trade volume
+                cursor.execute("""
+                    SELECT DISTINCT tm.port_code, 
+                           COALESCE(p.name, 'Port ' || tm.port_code) as port_name,
+                           SUM(tm.value_usd) as total_value
+                    FROM trade_monthly tm
+                    LEFT JOIN ports p ON tm.port_code = p.port_code
+                    WHERE tm.port_code != '-' AND tm.value_usd > 0
+                    GROUP BY tm.port_code, p.name
+                    ORDER BY total_value DESC
+                    LIMIT 50
+                """)
+                port_rows = cursor.fetchall()
+                
+                ports = []
+                for port_code, port_name, value in port_rows:
+                    ports.append({
+                        'code': port_code,
+                        'name': port_name,
+                        'display_name': f"{port_name} ({port_code})",
+                        'value': float(value or 0)
+                    })
+                
+                return jsonify({
+                    'success': True,
+                    'ports': ports,
+                    'count': len(ports)
+                })
+                
+    except Exception as e:
+        logger.error(f"Failed to get ports: {e}")
+        return jsonify({"error": f"Failed to get ports: {str(e)}"}), 500
+
+@app.route('/commodities')
+def get_commodities():
+    """Get available commodities for dropdown"""
+    if not db_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        with psycopg.connect(db_manager.database_url) as conn:
+            with conn.cursor() as cursor:
+                # Get commodities ordered by trade volume
+                cursor.execute("""
+                    SELECT DISTINCT tm.hs6,
+                           COALESCE(pr.product_desc, 'HS6 ' || tm.hs6) as product_desc,
+                           SUM(tm.value_usd) as total_value
+                    FROM trade_monthly tm
+                    LEFT JOIN products pr ON tm.hs6 = pr.hs6
+                    WHERE tm.value_usd > 0
+                    GROUP BY tm.hs6, pr.product_desc
+                    ORDER BY total_value DESC
+                    LIMIT 100
+                """)
+                commodity_rows = cursor.fetchall()
+                
+                commodities = []
+                for hs6, product_desc, value in commodity_rows:
+                    # Truncate long descriptions
+                    short_desc = product_desc[:40] + "..." if len(product_desc) > 40 else product_desc
+                    commodities.append({
+                        'code': hs6,
+                        'description': product_desc,
+                        'display_name': f"{hs6} - {short_desc}",
+                        'value': float(value or 0)
+                    })
+                
+                return jsonify({
+                    'success': True,
+                    'commodities': commodities,
+                    'count': len(commodities)
+                })
+                
+    except Exception as e:
+        logger.error(f"Failed to get commodities: {e}")
+        return jsonify({"error": f"Failed to get commodities: {str(e)}"}), 500
+
 @app.route('/test-db')
 def test_db():
     """Test database connectivity"""

@@ -74,14 +74,18 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label for="hs6Filter" class="form-label">HS6 Commodity Codes</label>
-                            <input type="text" class="form-control" id="hs6Filter" 
-                                   placeholder="e.g., 850440,854230">
+                            <label for="hs6Filter" class="form-label">HS6 Commodity</label>
+                            <select class="form-select" id="hs6Filter">
+                                <option value="">All Commodities</option>
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
                         </div>
                         <div class="col-md-2">
-                            <label for="portFilter" class="form-label">Port Code</label>
-                            <input type="text" class="form-control" id="portFilter" 
-                                   placeholder="e.g., 2704">
+                            <label for="portFilter" class="form-label">Port</label>
+                            <select class="form-select" id="portFilter">
+                                <option value="">All Ports</option>
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
                         </div>
                         <div class="col-md-2">
                             <label for="monthFilter" class="form-label">Month</label>
@@ -314,6 +318,66 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Initializing trade data page...');
     loadTradeData();
     initializeCharts();
+    loadPortOptions();
+    loadCommodityOptions();
+
+    async function loadPortOptions() {
+        try {
+            console.log('Loading port options...');
+            const response = await fetch('/ports');
+            const data = await response.json();
+            
+            if (data.success && data.ports) {
+                const portSelect = document.getElementById('portFilter');
+                
+                // Clear existing options except "All Ports"
+                while (portSelect.children.length > 1) {
+                    portSelect.removeChild(portSelect.lastChild);
+                }
+                
+                // Add port options
+                data.ports.forEach(port => {
+                    const option = document.createElement('option');
+                    option.value = port.code;
+                    option.textContent = port.display_name;
+                    portSelect.appendChild(option);
+                });
+                
+                console.log(`Loaded ${data.ports.length} port options`);
+            }
+        } catch (error) {
+            console.error('Failed to load port options:', error);
+        }
+    }
+
+    async function loadCommodityOptions() {
+        try {
+            console.log('Loading commodity options...');
+            const response = await fetch('/commodities');
+            const data = await response.json();
+            
+            if (data.success && data.commodities) {
+                const commoditySelect = document.getElementById('hs6Filter');
+                
+                // Clear existing options except "All Commodities"
+                while (commoditySelect.children.length > 1) {
+                    commoditySelect.removeChild(commoditySelect.lastChild);
+                }
+                
+                // Add commodity options
+                data.commodities.forEach(commodity => {
+                    const option = document.createElement('option');
+                    option.value = commodity.code;
+                    option.textContent = commodity.display_name;
+                    commoditySelect.appendChild(option);
+                });
+                
+                console.log(`Loaded ${data.commodities.length} commodity options`);
+            }
+        } catch (error) {
+            console.error('Failed to load commodity options:', error);
+        }
+    }
 
     async function loadTradeData() {
         console.log('loadTradeData function called');
@@ -813,8 +877,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         filteredData = tradeData.filter(record => {
             if (tradeType !== 'both' && record.trade_type !== tradeType) return false;
-            if (hs6Filter && !record.hs6_code.includes(hs6Filter)) return false;
-            if (portFilter && !record.port_code.includes(portFilter)) return false;
+            if (hs6Filter && record.hs6_code !== hs6Filter) return false; // Exact match for dropdown
+            if (portFilter && record.port_code !== portFilter) return false; // Exact match for dropdown
             if (monthFilter && !record.month.includes('-' + monthFilter + '-')) return false;
             if (yearFilter && !record.month.includes(yearFilter)) return false;
             return true;
