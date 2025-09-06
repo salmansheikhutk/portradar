@@ -98,6 +98,20 @@ def test_flask_endpoints():
             print(f"   Tables: {data.get('tables', [])}")
         else:
             print(f"❌ Failed: {response.data}")
+        
+        # Test 8: Query stored data
+        print("\nTest 8: GET /stored-data")
+        response = client.get('/stored-data?limit=3')
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.get_json()
+            count = data.get('count', 0)
+            print(f"✅ Success! Found {count} stored records")
+            if count > 0:
+                sample = data['data'][0]
+                print(f"   Sample: {sample.get('port_code')} - ${sample.get('value_usd')}")
+        else:
+            print(f"❌ Failed: {response.data}")
     
     print("\n" + "=" * 50)
     print("Flask endpoint testing completed!")

@@ -3,9 +3,9 @@
 A Flask application for monitoring U.S. international trade data by port and commodity codes.
 
 ## ✅ Step 1 Complete: API Data Fetching
-## 🚧 Step 2 In Progress: Database Integration
+## ✅ Step 2 Complete: Database Integration
 
-**Status: DATABASE CONNECTED** - Successfully connected to PostgreSQL with all tables created!
+**Status: DATA PERSISTENCE WORKING** - Census API data is now stored in PostgreSQL!
 
 **Step 1 includes:**
 - ✅ Flask web application with REST API endpoints
@@ -15,19 +15,22 @@ A Flask application for monitoring U.S. international trade data by port and com
 - ✅ Data validation and parameter sanitization
 - ✅ Comprehensive test coverage
 
-**Step 2 progress:**
+**Step 2 includes:**
 - ✅ PostgreSQL database created (`portradar`)
 - ✅ Database schema created (6 tables: ports, products, trade_monthly, etl_runs, watchlists, alerts)
 - ✅ Database connectivity established (psycopg3)
 - ✅ Database test endpoint (`/test-db`)
 - ✅ Schema documented (`schema.sql`, `DATABASE.md`)
-- 🚧 Data persistence layer (next: store API data in database)
+- ✅ **Data persistence layer** - API data automatically stored in database
+- ✅ **Database query endpoint** (`/stored-data`) - Query historical data
 
 ### 🎯 Test Results
 - **90 import records** successfully fetched for HS6 850760 (Lithium Ion Batteries)
-- **83 export records** successfully fetched for HS6 850760
-- **All endpoints working** (/, /health, /trade-data, /test-api, /test-db)
+- **83 export records** successfully fetched for HS6 850760  
+- **173 total records stored** in PostgreSQL database automatically
+- **All endpoints working** (/, /health, /trade-data, /test-api, /test-db, /stored-data)
 - **Database connectivity verified** - 6 tables found in PostgreSQL
+- **Data persistence verified** - API data automatically stored and queryable
 - **Error handling verified** for invalid parameters
 
 ## Installation
@@ -92,6 +95,22 @@ Test endpoint that fetches sample data for HS6 code 850760.
 Test database connectivity and show available tables.
 **Status: ✅ Working**
 
+#### GET `/stored-data`
+Query stored trade data from database.
+**Status: ✅ Working**
+
+**Query Parameters:**
+- `hs6` (optional): 6-digit HS commodity code filter
+- `port_code` (optional): Port code filter  
+- `flow` (optional): "imports" or "exports" filter
+- `start_period` (optional): Start period in YYYY-MM format
+- `limit` (optional): Max records to return (default: 100, max: 1000)
+
+**Example:**
+```bash
+curl "http://localhost:5000/stored-data?hs6=850760&flow=imports&limit=10"
+```
+
 ## Testing
 
 Run the Census API integration test:
@@ -130,7 +149,7 @@ The PostgreSQL database includes 6 tables for comprehensive trade data tracking:
 
 - [x] ✅ Step 1: API integration with U.S. Census trade data
 - [x] ✅ Step 2: Database schema creation and connectivity  
-- [ ] 🚧 Step 2 (cont.): Data persistence layer (store API data in database)
+- [x] ✅ Step 2: Data persistence layer (store API data in database)
 - [ ] Step 3: Watchlist management endpoints
 - [ ] Step 4: Alert system with MoM change detection
 - [ ] Step 5: Dashboard UI with Bootstrap

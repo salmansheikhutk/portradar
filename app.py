@@ -5,6 +5,7 @@ from datetime import datetime
 import logging
 from dotenv import load_dotenv
 import psycopg
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -106,8 +107,171 @@ class CensusTradeAPI:
             logger.error(f"Unexpected error: {str(e)}")
             return {"error": f"Unexpected error: {str(e)}"}
 
-# Initialize API client
+
+class TradeDataManager:
+    """Handles storing and retrieving trade data from PostgreSQL"""
+    
+    def __init__(self, database_url):
+        self.database_url = database_url
+    
+    def store_trade_data(self, trade_data, flow_type, hs6_code, time_period):
+        """Store trade data records in the database"""
+        if not self.database_url:
+            logger.warning("Database URL not configured - skipping data storage")
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    stored_count = 0
+                    updated_count = 0
+                    
+                    # Convert time_period to proper date format (YYYY-MM-01)
+                    period_date = f"{time_period}-01"
+                    
+                    for record in trade_data:
+                        # Extract relevant data from Census API response
+                        port_code = record.get('PORT')
+                        port_name = record.get('PORT_NAME', '')
+                        
+                        # Handle different field names for imports vs exports
+                        if flow_type == 'imports':
+                            value_field = record.get('GEN_VAL_MO') or record.get('IMPGEN_VAL_MO')
+                            commodity_desc = record.get('I_COMMODITY_LDESC', '')
+                        else:
+                            value_field = record.get('ALL_VAL_MO') or record.get('EXPALL_VAL_MO')  
+                            commodity_desc = record.get('E_COMMODITY_LDESC', '')
+                        
+                        if not port_code or not value_field:
+                            logger.debug(f"Skipping record with missing data: {record}")
+                            continue
+                        
+                        try:
+                            value_usd = float(value_field)
+                        except (ValueError, TypeError):
+                            logger.debug(f"Invalid value_usd: {value_field}")
+                            continue
+                        
+                        # Store/update port reference data
+                        cursor.execute("""
+                            INSERT INTO ports (port_code, name) 
+                            VALUES (%s, %s) 
+                            ON CONFLICT (port_code) DO UPDATE SET name = EXCLUDED.name
+                        """, (port_code, port_name))
+                        
+                        # Store/update product reference data
+                        cursor.execute("""
+                            INSERT INTO products (hs6, product_desc) 
+                            VALUES (%s, %s) 
+                            ON CONFLICT (hs6) DO UPDATE SET product_desc = EXCLUDED.product_desc
+                        """, (hs6_code, commodity_desc))
+                        
+                        # Store/update trade data
+                        cursor.execute("""
+                            INSERT INTO trade_monthly (flow, port_code, hs6, period, value_usd, qty, unit)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (flow, port_code, hs6, period) 
+                            DO UPDATE SET 
+                                value_usd = EXCLUDED.value_usd,
+                                qty = EXCLUDED.qty,
+                                unit = EXCLUDED.unit
+                        """, (flow_type, port_code, hs6_code, period_date, value_usd, None, None))
+                        
+                        # Check if this was an insert or update
+                        if cursor.rowcount > 0:
+                            stored_count += 1
+                    
+                    # Record the ETL run
+                    cursor.execute("""
+                        INSERT INTO etl_runs (source, period, completed_at)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (source, period) 
+                        DO UPDATE SET completed_at = EXCLUDED.completed_at
+                    """, (f"census_api_{flow_type}", period_date, datetime.now()))
+                    
+                    conn.commit()
+                    
+                    logger.info(f"Stored {stored_count} trade records for {hs6_code} {flow_type} in {time_period}")
+                    return {
+                        "success": True,
+                        "stored_count": stored_count,
+                        "period": time_period,
+                        "flow": flow_type,
+                        "hs6": hs6_code
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Database storage failed: {e}")
+            return {"error": f"Database storage failed: {str(e)}"}
+    
+    def get_trade_data(self, hs6_code=None, port_code=None, flow_type=None, start_period=None, limit=100):
+        """Retrieve trade data from database"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    # Build dynamic query
+                    conditions = []
+                    params = []
+                    
+                    if hs6_code:
+                        conditions.append("tm.hs6 = %s")
+                        params.append(hs6_code)
+                    
+                    if port_code:
+                        conditions.append("tm.port_code = %s")
+                        params.append(port_code)
+                    
+                    if flow_type:
+                        conditions.append("tm.flow = %s")
+                        params.append(flow_type)
+                    
+                    if start_period:
+                        conditions.append("tm.period >= %s")
+                        params.append(f"{start_period}-01")
+                    
+                    where_clause = " AND ".join(conditions) if conditions else "1=1"
+                    
+                    query = f"""
+                        SELECT tm.*, p.name as port_name, pr.product_desc
+                        FROM trade_monthly tm
+                        LEFT JOIN ports p ON tm.port_code = p.port_code
+                        LEFT JOIN products pr ON tm.hs6 = pr.hs6
+                        WHERE {where_clause}
+                        ORDER BY tm.period DESC, tm.value_usd DESC
+                        LIMIT %s
+                    """
+                    params.append(limit)
+                    
+                    cursor.execute(query, params)
+                    rows = cursor.fetchall()
+                    
+                    # Convert to list of dictionaries
+                    columns = [desc[0] for desc in cursor.description]
+                    results = []
+                    for row in rows:
+                        record = dict(zip(columns, row))
+                        # Format the period date as string
+                        if record.get('period'):
+                            record['period'] = record['period'].strftime('%Y-%m')
+                        results.append(record)
+                    
+                    return {
+                        "success": True,
+                        "data": results,
+                        "count": len(results)
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Database query failed: {e}")
+            return {"error": f"Database query failed: {str(e)}"}
+
+
+# Initialize API client and database manager
 census_api = CensusTradeAPI()
+db_manager = TradeDataManager(DATABASE_URL) if DATABASE_URL else None
 
 @app.route('/')
 def index():
@@ -167,6 +331,21 @@ def get_trade_data():
     if "error" in result:
         return jsonify(result), 500
     
+    # Store data in database if available
+    storage_result = None
+    if db_manager and result.get("success") and result.get("data"):
+        storage_result = db_manager.store_trade_data(
+            result["data"], trade_type, hs6_code, time_from
+        )
+        if storage_result.get("success"):
+            logger.info(f"Stored {storage_result.get('stored_count')} records in database")
+        else:
+            logger.warning(f"Database storage failed: {storage_result.get('error')}")
+    
+    # Add storage info to response
+    if storage_result:
+        result["database_storage"] = storage_result
+    
     return jsonify(result)
 
 @app.route('/test-api')
@@ -174,6 +353,52 @@ def test_api():
     """Test endpoint with sample data"""
     # Test with HS6 850760 (example from requirements)
     result = census_api.fetch_trade_data('850760', '2024-01', trade_type='imports')
+    return jsonify(result)
+
+@app.route('/stored-data')
+def get_stored_data():
+    """
+    Query stored trade data from database
+    
+    Query parameters:
+    - hs6 (optional): 6-digit HS code filter
+    - port_code (optional): Port code filter  
+    - flow (optional): 'imports' or 'exports' filter
+    - start_period (optional): Start period in YYYY-MM format
+    - limit (optional): Max records to return (default: 100)
+    """
+    if not db_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    # Get query parameters
+    hs6_code = request.args.get('hs6')
+    port_code = request.args.get('port_code')
+    flow_type = request.args.get('flow')
+    start_period = request.args.get('start_period')
+    limit = int(request.args.get('limit', 100))
+    
+    # Validate parameters
+    if hs6_code and (len(hs6_code) != 6 or not hs6_code.isdigit()):
+        return jsonify({"error": "hs6 must be a 6-digit code"}), 400
+    
+    if flow_type and flow_type not in ['imports', 'exports']:
+        return jsonify({"error": "flow must be 'imports' or 'exports'"}), 400
+    
+    if start_period:
+        try:
+            datetime.strptime(start_period, '%Y-%m')
+        except ValueError:
+            return jsonify({"error": "start_period must be in YYYY-MM format"}), 400
+    
+    if limit > 1000:
+        return jsonify({"error": "limit cannot exceed 1000"}), 400
+    
+    # Query database
+    result = db_manager.get_trade_data(hs6_code, port_code, flow_type, start_period, limit)
+    
+    if "error" in result:
+        return jsonify(result), 500
+    
     return jsonify(result)
 
 @app.route('/test-db')
