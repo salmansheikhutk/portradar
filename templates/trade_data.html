@@ -792,11 +792,16 @@ async function loadDashboardMetrics() {
 
 // Show create watchlist modal
 function showCreateWatchlistModal() {
+    console.log('showCreateWatchlistModal called');
     const modal = new bootstrap.Modal(document.getElementById('createWatchlistModal'));
     
     // Load data first, then show modal
     loadWatchlistFormData().then(() => {
+        console.log('Data loaded, showing modal');
         modal.show();
+    }).catch(error => {
+        console.error('Error in showCreateWatchlistModal:', error);
+        modal.show(); // Show modal anyway
     });
 }
 

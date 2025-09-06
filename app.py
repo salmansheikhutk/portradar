@@ -851,7 +851,6 @@ def index():
 
 @app.route('/')
 @app.route('/dashboard')
-@app.route('/trade-data-page')
 def dashboard():
     """Main consolidated dashboard and trade data page"""
     return render_template('trade_data.html')
