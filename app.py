@@ -1015,6 +1015,65 @@ def get_stored_data():
     
     return jsonify(result)
 
+@app.route('/quick-reference')
+def get_quick_reference():
+    """Get real commodity and port data for quick reference"""
+    if not db_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        with psycopg.connect(db_manager.database_url) as conn:
+            with conn.cursor() as cursor:
+                # Get top 5 HS6 codes by trade value
+                cursor.execute("""
+                    SELECT tm.hs6, pr.product_desc, SUM(tm.value_usd) as total_value
+                    FROM trade_monthly tm
+                    LEFT JOIN products pr ON tm.hs6 = pr.hs6
+                    WHERE tm.value_usd > 0
+                    GROUP BY tm.hs6, pr.product_desc
+                    ORDER BY total_value DESC
+                    LIMIT 5
+                """)
+                commodity_rows = cursor.fetchall()
+                
+                # Get top 5 ports by trade value
+                cursor.execute("""
+                    SELECT tm.port_code, p.name as port_name, SUM(tm.value_usd) as total_value
+                    FROM trade_monthly tm
+                    LEFT JOIN ports p ON tm.port_code = p.port_code
+                    WHERE tm.value_usd > 0
+                    GROUP BY tm.port_code, p.name
+                    ORDER BY total_value DESC
+                    LIMIT 5
+                """)
+                port_rows = cursor.fetchall()
+                
+                commodities = []
+                for hs6, desc, value in commodity_rows:
+                    commodities.append({
+                        'code': hs6,
+                        'description': desc or f"HS6 Code {hs6}",
+                        'value': float(value or 0)
+                    })
+                
+                ports = []
+                for port_code, port_name, value in port_rows:
+                    ports.append({
+                        'code': port_code,
+                        'name': port_name or f"Port {port_code}",
+                        'value': float(value or 0)
+                    })
+                
+                return jsonify({
+                    'success': True,
+                    'commodities': commodities,
+                    'ports': ports
+                })
+                
+    except Exception as e:
+        logger.error(f"Failed to get quick reference: {e}")
+        return jsonify({"error": f"Failed to get quick reference: {str(e)}"}), 500
+
 @app.route('/test-db')
 def test_db():
     """Test database connectivity"""

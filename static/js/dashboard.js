@@ -100,7 +100,8 @@ async function loadDashboardData() {
             loadMetrics(),
             loadRecentAlerts(),
             loadActiveWatchlists(),
-            loadSystemStatus()
+            loadSystemStatus(),
+            loadQuickReference()
         ]);
         
         document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
@@ -439,6 +440,42 @@ window.loadSampleData = async function() {
         showAlert('Error loading sample data: ' + error.message, 'danger');
     }
 };
+
+// Load quick reference data
+async function loadQuickReference() {
+    try {
+        const response = await apiCall('/quick-reference');
+        
+        if (response.success) {
+            // Update commodity badges
+            const commodityContainer = document.getElementById('commodity-badges');
+            if (commodityContainer && response.commodities.length > 0) {
+                commodityContainer.innerHTML = response.commodities.map(commodity => 
+                    `<span class="badge bg-secondary" title="${commodity.description}">${commodity.code}</span>`
+                ).join('\n                                ');
+            }
+            
+            // Update port badges  
+            const portContainer = document.getElementById('port-badges');
+            if (portContainer && response.ports.length > 0) {
+                portContainer.innerHTML = response.ports.map(port =>
+                    `<span class="badge bg-success" title="${port.name}">${port.code}</span>`
+                ).join('\n                                ');
+            }
+            
+            // Reinitialize tooltips after updating content
+            if (typeof bootstrap !== 'undefined') {
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load quick reference data:', error.message);
+        // Fail silently - the static data will remain as fallback
+    }
+}
 
 // Initialize tooltips for badges if Bootstrap is available
 document.addEventListener('DOMContentLoaded', function() {

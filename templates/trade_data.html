@@ -320,8 +320,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/stored-data?limit=1000');
             const data = await response.json();
             
-            if (data.success && data.trade_data && data.trade_data.length > 0) {
-                tradeData = data.trade_data;
+            if (data.success && data.data && data.data.length > 0) {
+                // Map the database response to expected format
+                tradeData = data.data.map(record => ({
+                    trade_type: record.flow,
+                    month: record.period,
+                    hs6_code: record.hs6,
+                    commodity_description: record.product_desc || 'N/A',
+                    port_code: record.port_code,
+                    port_name: record.port_name || 'N/A', 
+                    country_code: record.country_code || 'N/A',
+                    trade_value: record.value_usd,
+                    quantity: record.quantity || 0
+                }));
                 filteredData = [...tradeData];
                 updateStatistics();
                 updateCharts();
@@ -370,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showLoading(true);
             // Fetch some sample trade data
-            const response = await fetch('/trade-data?hs6_codes=850440&time_period=2024-01');
+            const response = await fetch('/trade-data?hs6_codes=850760&time_period=2024-01');
             const data = await response.json();
             
             if (data.success) {
@@ -379,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     location.reload();
                 }, 2000);
             } else {
-                showError('Failed to fetch sample data: ' + data.message);
+                showError('Failed to fetch sample data: ' + (data.message || data.error));
             }
         } catch (error) {
             showError('Error fetching sample data: ' + error.message);
@@ -794,6 +805,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showError(message) {
         alert('Error: ' + message);
+    }
+
+    function showSuccess(message) {
+        // Create a temporary alert
+        const alertContainer = document.createElement('div');
+        alertContainer.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        alertContainer.style.top = '20px';
+        alertContainer.style.right = '20px';
+        alertContainer.style.zIndex = '9999';
+        alertContainer.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        document.body.appendChild(alertContainer);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (alertContainer.parentNode) {
+                alertContainer.remove();
+            }
+        }, 3000);
     }
 
     // Page size change handler
