@@ -353,12 +353,15 @@ document.addEventListener('DOMContentLoaded', function() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="10" class="text-center py-5">
-                    <i class="bi bi-inbox display-4 text-muted"></i>
-                    <h4 class="text-muted mt-3">No Trade Data Available</h4>
-                    <p class="text-muted">Load some trade data first by using the API endpoints</p>
+                    <i class="bi bi-database display-4 text-muted"></i>
+                    <h4 class="text-muted mt-3">No Trade Data Found</h4>
+                    <p class="text-muted">There's currently no trade data in the database.</p>
                     <div class="mt-3">
-                        <button class="btn btn-primary me-2" onclick="fetchSampleData()">
-                            <i class="bi bi-download"></i> Fetch Sample Data
+                        <button class="btn btn-primary me-2" onclick="fetchRealData()">
+                            <i class="bi bi-download"></i> Fetch Live Data
+                        </button>
+                        <button class="btn btn-success me-2" onclick="loadSampleData()">
+                            <i class="bi bi-play-fill"></i> Load Sample Data
                         </button>
                         <a href="/dashboard" class="btn btn-outline-primary">
                             <i class="bi bi-arrow-left"></i> Back to Dashboard
@@ -394,6 +397,83 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             showError('Error fetching sample data: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    };
+
+    window.fetchRealData = async function() {
+        try {
+            showLoading(true);
+            const response = await fetch('/trade-data?hs6_codes=850440,854230,847130&time_period=2024-01,2024-02,2024-03');
+            const data = await response.json();
+            
+            if (data.success) {
+                showSuccess('Real data fetched! Refreshing page...');
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showError('Failed to fetch real data: ' + (data.message || data.error));
+            }
+        } catch (error) {
+            showError('Error fetching real data: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    };
+
+    window.loadSampleData = async function() {
+        try {
+            showLoading(true);
+            
+            // Create some sample data to display immediately
+            const sampleData = [
+                {
+                    trade_type: 'imports',
+                    month: '2024-01',
+                    hs6_code: '850440',
+                    commodity_description: 'Static converters',
+                    port_code: '2704', 
+                    port_name: 'Los Angeles, CA',
+                    country_code: 'CN',
+                    trade_value: 1250000,
+                    quantity: 5000
+                },
+                {
+                    trade_type: 'exports', 
+                    month: '2024-01',
+                    hs6_code: '854230',
+                    commodity_description: 'Electronic integrated circuits',
+                    port_code: '4601',
+                    port_name: 'New York, NY', 
+                    country_code: 'DE',
+                    trade_value: 850000,
+                    quantity: 2500
+                },
+                {
+                    trade_type: 'imports',
+                    month: '2024-02',
+                    hs6_code: '847130', 
+                    commodity_description: 'Portable digital computers',
+                    port_code: '2704',
+                    port_name: 'Los Angeles, CA',
+                    country_code: 'CN',
+                    trade_value: 2100000,
+                    quantity: 800
+                }
+            ];
+            
+            tradeData = sampleData;
+            filteredData = [...tradeData];
+            updateStatistics();
+            updateCharts();
+            updateDataTable();
+            
+            showSuccess('Sample data loaded successfully!');
+            
+        } catch (error) {
+            showError('Error loading sample data: ' + error.message);
         } finally {
             showLoading(false);
         }

@@ -393,6 +393,41 @@ async function generateWatchlistAlerts(watchlistId) {
     }
 }
 
+async function loadQuickReference() {
+    try {
+        const response = await apiCall('/quick-reference');
+        
+        if (response.success) {
+            // Update commodity badges
+            const commodityContainer = document.getElementById('commodity-badges');
+            if (commodityContainer && response.commodities && response.commodities.length > 0) {
+                commodityContainer.innerHTML = response.commodities.map(item => 
+                    `<span class="badge bg-secondary" title="${item.description}">${item.code}</span>`
+                ).join('');
+            }
+            
+            // Update port badges  
+            const portContainer = document.getElementById('port-badges');
+            if (portContainer && response.ports && response.ports.length > 0) {
+                portContainer.innerHTML = response.ports.map(item =>
+                    `<span class="badge bg-success" title="${item.name}">${item.code}</span>`
+                ).join('');
+            }
+            
+            // Reinitialize tooltips
+            if (typeof bootstrap !== 'undefined') {
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to load quick reference:', error);
+        // Keep the default static data if API fails
+    }
+}
+
 async function showHealthStatus() {
     try {
         const [dbResponse, apiResponse, healthResponse] = await Promise.all([
