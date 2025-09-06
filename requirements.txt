@@ -1,0 +1,12 @@
+Flask==3.0.0
+requests==2.31.0
+python-dotenv==1.0.0
+psycopg==3.1.18sk==3.0.0
+requests==2.31.0
+python-dotenv==1.0.0
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+flask-sqlalchemy==3.1.1
+alembic==1.12.1sk==3.0.0
+requests==2.31.0
+python-dotenv==1.0.0
