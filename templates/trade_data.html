@@ -132,30 +132,6 @@
         </div>
     </div>
 
-    <!-- Quick Stats and Data Management -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-md-4">
-                            <h4 class="text-primary mb-1" id="totalRecords">-</h4>
-                            <small class="text-muted">Records</small>
-                        </div>
-                        <div class="col-md-4">
-                            <h4 class="text-success mb-1" id="totalValue">-</h4>
-                            <small class="text-muted">Total Value</small>
-                        </div>
-                        <div class="col-md-4">
-                            <h4 class="text-info mb-1" id="avgValue">-</h4>
-                            <small class="text-muted">Avg Value</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Data Table -->
     <div class="row">
         <div class="col-12">
@@ -336,7 +312,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     quantity: record.quantity || 0
                 }));
                 filteredData = [...tradeData];
-                updateStatistics();
                 updateDataTable();
             } else {
                 console.log('No data found or API failed:', data); // Debug log
@@ -374,11 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </tr>
         `;
         
-        // Set empty statistics
-        document.getElementById('totalRecords').textContent = '0';
-        document.getElementById('totalValue').textContent = '$0';
-        document.getElementById('totalQuantity').textContent = '0';
-        document.getElementById('uniquePorts').textContent = '0';
+        // Set empty record info
         document.getElementById('recordInfo').textContent = 'No records found';
         document.getElementById('pagination').innerHTML = '';
     }
@@ -479,7 +450,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             tradeData = sampleData;
             filteredData = [...tradeData];
-            updateStatistics();
             updateDataTable();
             
             showSuccess('Sample data loaded successfully!');
@@ -490,30 +460,6 @@ document.addEventListener('DOMContentLoaded', function() {
             showLoading(false);
         }
     };
-
-    function updateStatistics() {
-        const data = filteredData;
-        
-        document.getElementById('totalRecords').textContent = data.length.toLocaleString();
-        
-        const totalValue = data.reduce((sum, record) => sum + (parseFloat(record.trade_value) || 0), 0);
-        document.getElementById('totalValue').textContent = '$' + (totalValue / 1000000).toFixed(1) + 'M';
-        
-        const avgValue = data.length > 0 ? totalValue / data.length : 0;
-        document.getElementById('avgValue').textContent = '$' + (avgValue / 1000).toFixed(0) + 'K';
-    }
-
-    function updateStatistics() {
-        const data = filteredData;
-        
-        document.getElementById('totalRecords').textContent = data.length.toLocaleString();
-        
-        const totalValue = data.reduce((sum, record) => sum + (parseFloat(record.trade_value) || 0), 0);
-        document.getElementById('totalValue').textContent = '$' + (totalValue / 1000000).toFixed(1) + 'M';
-        
-        const avgValue = data.length > 0 ? totalValue / data.length : 0;
-        document.getElementById('avgValue').textContent = '$' + (avgValue / 1000).toFixed(0) + 'K';
-    }
 
     function updateDataTable() {
         const startIndex = (currentPage - 1) * pageSize;
@@ -599,7 +545,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         currentPage = 1;
-        updateStatistics();
         updateDataTable();
         updateActiveFilters();
     };
@@ -723,8 +668,6 @@ document.addEventListener('DOMContentLoaded', function() {
             (record.country_code || '').toLowerCase().includes(searchTerm)
         );
         currentPage = 1;
-        updateStatistics();
-        updateCharts();
         updateDataTable();
     });
 
