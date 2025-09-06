@@ -46,6 +46,9 @@
                     <p class="text-muted mb-0">Monitor U.S. international trade data</p>
                 </div>
                 <div class="btn-group">
+                    <button class="btn btn-outline-secondary" onclick="testFunction()">
+                        Test JS
+                    </button>
                     <button class="btn btn-outline-primary" onclick="showCreateWatchlistModal()">
                         <i class="bi bi-plus-circle"></i> Create Watchlist
                     </button>
@@ -549,6 +552,82 @@ document.addEventListener('DOMContentLoaded', function() {
         updateActiveFilters();
     };
 
+    // Test function  
+    window.testFunction = function() {
+        console.log('Test function called - JavaScript is working!');
+        alert('JavaScript is working!');
+    };
+
+    // Show create watchlist modal - MOVED TO TOP
+    window.showCreateWatchlistModal = function() {
+        console.log('showCreateWatchlistModal called - MOVED VERSION');
+        
+        const modal = new bootstrap.Modal(document.getElementById('createWatchlistModal'));
+        
+        // Load data first, then show modal
+        window.loadWatchlistFormData().then(() => {
+            console.log('Data loaded, showing modal');
+            modal.show();
+        }).catch(error => {
+            console.error('Error in showCreateWatchlistModal:', error);
+            modal.show(); // Show modal anyway
+        });
+    };
+
+    // Load watchlist form data - MOVED TO TOP
+    window.loadWatchlistFormData = async function() {
+        try {
+            console.log('Loading watchlist form data...');
+            
+            // Load commodities
+            const commoditiesResponse = await fetch('/commodities');
+            const commoditiesData = await commoditiesResponse.json();
+            const commodities = commoditiesData.commodities || [];
+            console.log('Commodities loaded:', commodities.length);
+            
+            const hs6Select = document.getElementById('hs6-codes');
+            hs6Select.innerHTML = '';
+            
+            if (commodities && commodities.length > 0) {
+                commodities.forEach(commodity => {
+                    const option = document.createElement('option');
+                    option.value = commodity.code;
+                    option.textContent = commodity.display_name || `${commodity.code} - ${commodity.description || 'N/A'}`;
+                    hs6Select.appendChild(option);
+                });
+            } else {
+                hs6Select.innerHTML = '<option disabled>No commodities available</option>';
+            }
+            
+            // Load ports
+            const portsResponse = await fetch('/ports');
+            const portsData = await portsResponse.json();
+            const ports = portsData.ports || [];
+            console.log('Ports loaded:', ports.length);
+            
+            const portSelect = document.getElementById('port-codes');
+            portSelect.innerHTML = '';
+            
+            if (ports && ports.length > 0) {
+                ports.forEach(port => {
+                    const option = document.createElement('option');
+                    option.value = port.code;
+                    option.textContent = port.display_name || `${port.code} - ${port.name || 'N/A'}`;
+                    portSelect.appendChild(option);
+                });
+            } else {
+                portSelect.innerHTML = '<option disabled>No ports available</option>';
+            }
+            
+            console.log('Watchlist form data loaded successfully');
+            
+        } catch (error) {
+            console.error('Failed to load form data:', error);
+            document.getElementById('hs6-codes').innerHTML = '<option disabled>Failed to load commodities</option>';
+            document.getElementById('port-codes').innerHTML = '<option disabled>Failed to load ports</option>';
+        }
+    };
+
     function updateActiveFilters() {
         // TODO: Implement active filter badges
     }
@@ -790,73 +869,13 @@ async function loadDashboardMetrics() {
     }
 }
 
-// Show create watchlist modal
-function showCreateWatchlistModal() {
-    console.log('showCreateWatchlistModal called');
-    const modal = new bootstrap.Modal(document.getElementById('createWatchlistModal'));
-    
-    // Load data first, then show modal
-    loadWatchlistFormData().then(() => {
-        console.log('Data loaded, showing modal');
-        modal.show();
-    }).catch(error => {
-        console.error('Error in showCreateWatchlistModal:', error);
-        modal.show(); // Show modal anyway
     });
-}
+});
 
-// Load watchlist form data
-async function loadWatchlistFormData() {
-    try {
-        console.log('Loading watchlist form data...');
-        
-        // Load commodities
-        const commoditiesResponse = await fetch('/commodities');
-        const commoditiesData = await commoditiesResponse.json();
-        const commodities = commoditiesData.commodities || [];
-        console.log('Commodities loaded:', commodities.length);
-        
-        const hs6Select = document.getElementById('hs6-codes');
-        hs6Select.innerHTML = '';
-        
-        if (commodities && commodities.length > 0) {
-            commodities.forEach(commodity => {
-                const option = document.createElement('option');
-                option.value = commodity.code;
-                option.textContent = commodity.display_name || `${commodity.code} - ${commodity.description || 'N/A'}`;
-                hs6Select.appendChild(option);
-            });
-        } else {
-            hs6Select.innerHTML = '<option disabled>No commodities available</option>';
-        }
-        
-        // Load ports
-        const portsResponse = await fetch('/ports');
-        const portsData = await portsResponse.json();
-        const ports = portsData.ports || [];
-        console.log('Ports loaded:', ports.length);
-        
-        const portSelect = document.getElementById('port-codes');
-        portSelect.innerHTML = '';
-        
-        if (ports && ports.length > 0) {
-            ports.forEach(port => {
-                const option = document.createElement('option');
-                option.value = port.code;
-                option.textContent = port.display_name || `${port.code} - ${port.name || 'N/A'}`;
-                portSelect.appendChild(option);
-            });
-        } else {
-            portSelect.innerHTML = '<option disabled>No ports available</option>';
-        }
-        
-        console.log('Watchlist form data loaded successfully');
-        
-    } catch (error) {
-        console.error('Failed to load form data:', error);
-        document.getElementById('hs6-codes').innerHTML = '<option disabled>Failed to load commodities</option>';
-        document.getElementById('port-codes').innerHTML = '<option disabled>Failed to load ports</option>';
-    }
+// Simple test function
+function testFunction() {
+    console.log('Test function called - JavaScript is working!');
+    alert('JavaScript is working!');
 }
 
 // Create watchlist
