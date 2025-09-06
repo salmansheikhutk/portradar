@@ -2,26 +2,619 @@
 
 {% block title %}Watchlists - PortRadar{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="h2"><i class="bi bi-binoculars"></i> Watchlists Manager</h1>
-        <p class="text-muted">Create and manage your trade data watchlists</p>
-    </div>
-</div>
+{% block extra_css %}
+<style>
+.watchlist-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+}
+.watchlist-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.alert-rule-badge {
+    font-size: 0.8em;
+}
+.watchlist-stats {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+}
+.performance-chart {
+    height: 300px;
+}
+.trade-volume-chart {
+    height: 250px;
+}
+</style>
+{% endblock %}
 
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-hammer fs-1 text-muted"></i>
-                <h3 class="mt-3">Coming Soon</h3>
-                <p class="text-muted">Advanced watchlist management interface is under development.</p>
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Back to Dashboard
-                </a>
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-list-check"></i> Watchlist Management</h2>
+            <p class="text-muted mb-0">Monitor trade flows and get alerts for your key commodities and ports</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createWatchlistModal">
+            <i class="bi bi-plus-circle"></i> Create New Watchlist
+        </button>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card watchlist-stats">
+                <div class="card-body text-center">
+                    <i class="bi bi-list-ul display-4 mb-2"></i>
+                    <h3 class="mb-0" id="totalWatchlists">-</h3>
+                    <small>Active Watchlists</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-graph-up-arrow display-4 mb-2"></i>
+                    <h3 class="mb-0" id="triggeredAlerts">-</h3>
+                    <small>Alerts This Month</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-box-seam display-4 mb-2"></i>
+                    <h3 class="mb-0" id="uniqueHs6">-</h3>
+                    <small>Tracked Products</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-geo-alt display-4 mb-2"></i>
+                    <h3 class="mb-0" id="uniquePorts">-</h3>
+                    <small>Monitored Ports</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Overview Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Watchlist Performance Overview</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary active" data-period="30">30 Days</button>
+                        <button class="btn btn-outline-primary" data-period="90">90 Days</button>
+                        <button class="btn btn-outline-primary" data-period="365">1 Year</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="performanceChart" class="performance-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watchlists Grid -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-collection"></i> Your Watchlists</h5>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control" placeholder="Search watchlists..." id="searchWatchlists">
+                        <button class="btn btn-outline-secondary" type="button">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="watchlistsGrid" class="row">
+                        <!-- Watchlists will be loaded here -->
+                    </div>
+                    <div id="noWatchlists" class="text-center py-5" style="display: none;">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">No Watchlists Found</h4>
+                        <p class="text-muted">Create your first watchlist to start monitoring trade flows</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createWatchlistModal">
+                            <i class="bi bi-plus-circle"></i> Create Watchlist
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade Volume Trends -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Trade Volume Trends</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="tradeVolumeChart" class="trade-volume-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Recent Alerts</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recentAlerts">
+                        <!-- Recent alerts will be loaded here -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Create Watchlist Modal -->
+<div class="modal fade" id="createWatchlistModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Create New Watchlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createWatchlistForm">
+                    <div class="mb-3">
+                        <label for="watchlistName" class="form-label">Watchlist Name</label>
+                        <input type="text" class="form-control" id="watchlistName" required 
+                               placeholder="e.g., Electronics Imports - West Coast">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="hs6Codes" class="form-label">HS6 Commodity Codes</label>
+                            <textarea class="form-control" id="hs6Codes" rows="3" required 
+                                      placeholder="e.g., 850440,854230,847130"></textarea>
+                            <div class="form-text">Enter HS6 codes separated by commas</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="portCodes" class="form-label">Port Codes</label>
+                            <textarea class="form-control" id="portCodes" rows="3" 
+                                      placeholder="e.g., 2704,4601,5301"></textarea>
+                            <div class="form-text">Enter port codes separated by commas (optional)</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="alertType" class="form-label">Alert Type</label>
+                            <select class="form-select" id="alertType" required>
+                                <option value="">Select Alert Type</option>
+                                <option value="mom_change">Month-over-Month Change</option>
+                                <option value="volume_threshold">Volume Threshold</option>
+                                <option value="both">Both Types</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="thresholdContainer">
+                            <label for="threshold" class="form-label">Threshold Value</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="threshold" step="0.1" 
+                                       placeholder="e.g., 15.0">
+                                <span class="input-group-text" id="thresholdUnit">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="notes" rows="2" 
+                                  placeholder="Add any notes about this watchlist..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveWatchlist">
+                    <i class="bi bi-check-circle"></i> Create Watchlist
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentUser = 'demo_user';
+    let watchlists = [];
+    let performanceChart = null;
+    let tradeVolumeChart = null;
+
+    // Initialize page
+    loadWatchlists();
+    initializeCharts();
+    
+    // Auto-refresh every 5 minutes
+    setInterval(loadWatchlists, 5 * 60 * 1000);
+
+    async function loadWatchlists() {
+        try {
+            showLoading();
+            const response = await fetch(`/watchlists?user_id=${currentUser}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                watchlists = data.watchlists;
+                updateStats(watchlists);
+                renderWatchlists(watchlists);
+                updateCharts(watchlists);
+                loadRecentAlerts();
+            } else {
+                showError('Failed to load watchlists: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error loading watchlists: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function updateStats(watchlists) {
+        document.getElementById('totalWatchlists').textContent = watchlists.length;
+        
+        // Calculate unique HS6 codes
+        const uniqueHs6 = new Set();
+        const uniquePorts = new Set();
+        
+        watchlists.forEach(w => {
+            if (w.hs6_codes) {
+                w.hs6_codes.forEach(code => uniqueHs6.add(code));
+            }
+            if (w.port_codes) {
+                w.port_codes.forEach(port => uniquePorts.add(port));
+            }
+        });
+        
+        document.getElementById('uniqueHs6').textContent = uniqueHs6.size;
+        document.getElementById('uniquePorts').textContent = uniquePorts.size;
+    }
+
+    async function loadRecentAlerts() {
+        try {
+            const response = await fetch(`/alerts?user_id=${currentUser}&limit=5`);
+            const data = await response.json();
+            
+            if (data.success && data.alerts.length > 0) {
+                document.getElementById('triggeredAlerts').textContent = data.alerts.length;
+                renderRecentAlerts(data.alerts);
+            } else {
+                document.getElementById('triggeredAlerts').textContent = '0';
+                document.getElementById('recentAlerts').innerHTML = 
+                    '<p class="text-muted text-center">No recent alerts</p>';
+            }
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+            document.getElementById('triggeredAlerts').textContent = '0';
+        }
+    }
+
+    function renderWatchlists(watchlists) {
+        const grid = document.getElementById('watchlistsGrid');
+        const noWatchlists = document.getElementById('noWatchlists');
+        
+        if (watchlists.length === 0) {
+            grid.style.display = 'none';
+            noWatchlists.style.display = 'block';
+            return;
+        }
+        
+        grid.style.display = 'flex';
+        noWatchlists.style.display = 'none';
+        
+        grid.innerHTML = watchlists.map(watchlist => `
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card watchlist-card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-start">
+                        <h6 class="mb-0">${watchlist.name}</h6>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="editWatchlist(${watchlist.id})">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="generateWatchlistAlerts(${watchlist.id})">
+                                    <i class="bi bi-bell"></i> Generate Alerts
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteWatchlist(${watchlist.id})">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <small class="text-muted">HS6 Codes:</small><br>
+                            <code class="small">${(watchlist.hs6_codes || []).join(', ') || 'None'}</code>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">Ports:</small><br>
+                            <code class="small">${(watchlist.port_codes || []).join(', ') || 'All ports'}</code>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted">Alert Rules:</small><br>
+                            ${renderAlertRules(watchlist.alert_rules)}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                Created: ${new Date(watchlist.created_at).toLocaleDateString()}
+                            </small>
+                            <button class="btn btn-sm btn-primary" onclick="generateWatchlistAlerts(${watchlist.id})">
+                                <i class="bi bi-bell"></i> Generate Alerts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderAlertRules(rules) {
+        if (!rules || Object.keys(rules).length === 0) {
+            return '<span class="badge bg-secondary">No rules</span>';
+        }
+        
+        let badges = [];
+        if (rules.mom_change_threshold) {
+            badges.push(`<span class="badge bg-info alert-rule-badge">MoM: ${rules.mom_change_threshold}%</span>`);
+        }
+        if (rules.volume_threshold) {
+            badges.push(`<span class="badge bg-warning alert-rule-badge">Volume: ${rules.volume_threshold}</span>`);
+        }
+        
+        return badges.join(' ');
+    }
+
+    function renderRecentAlerts(alerts) {
+        const container = document.getElementById('recentAlerts');
+        container.innerHTML = alerts.map(alert => `
+            <div class="alert alert-sm ${getAlertClass(alert.alert_type)} mb-2" role="alert">
+                <div class="d-flex justify-content-between">
+                    <small><strong>${alert.alert_type.replace('_', ' ').toUpperCase()}</strong></small>
+                    <small>${new Date(alert.created_at).toLocaleDateString()}</small>
+                </div>
+                <div class="small mt-1">${alert.message}</div>
+                ${alert.alert_score ? `<div class="small text-muted">Score: ${alert.alert_score}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    function getAlertClass(type) {
+        const classes = {
+            'mom_change': 'alert-info',
+            'volume_threshold': 'alert-warning',
+            'anomaly': 'alert-danger'
+        };
+        return classes[type] || 'alert-secondary';
+    }
+
+    function initializeCharts() {
+        // Performance Overview Chart
+        const perfCtx = document.getElementById('performanceChart').getContext('2d');
+        performanceChart = new Chart(perfCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Alert Triggers',
+                    data: [],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#f8f9fa'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: '#f8f9fa'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Trade Volume Chart
+        const volCtx = document.getElementById('tradeVolumeChart').getContext('2d');
+        tradeVolumeChart = new Chart(volCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Import Volume',
+                    data: [],
+                    backgroundColor: '#28a745'
+                }, {
+                    label: 'Export Volume',
+                    data: [],
+                    backgroundColor: '#17a2b8'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#f8f9fa'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: '#f8f9fa'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateCharts(watchlists) {
+        // Generate sample data for demonstration
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        const alertData = months.map(() => Math.floor(Math.random() * 10) + 1);
+        const importData = months.map(() => Math.floor(Math.random() * 100000) + 50000);
+        const exportData = months.map(() => Math.floor(Math.random() * 80000) + 30000);
+        
+        // Update performance chart
+        performanceChart.data.labels = months;
+        performanceChart.data.datasets[0].data = alertData;
+        performanceChart.update();
+        
+        // Update trade volume chart
+        tradeVolumeChart.data.labels = months;
+        tradeVolumeChart.data.datasets[0].data = importData;
+        tradeVolumeChart.data.datasets[1].data = exportData;
+        tradeVolumeChart.update();
+    }
+
+    // Watchlist management functions
+    window.generateWatchlistAlerts = async function(watchlistId) {
+        try {
+            const response = await fetch('/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUser,
+                    watchlist_ids: [watchlistId]
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showSuccess(`Generated ${data.alerts_created} alerts for watchlist`);
+                loadRecentAlerts();
+            } else {
+                showError('Failed to generate alerts: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error generating alerts: ' + error.message);
+        }
+    };
+
+    // Create watchlist form handling
+    document.getElementById('saveWatchlist').addEventListener('click', async function() {
+        const form = document.getElementById('createWatchlistForm');
+        
+        const watchlistData = {
+            user_id: currentUser,
+            name: document.getElementById('watchlistName').value,
+            hs6_codes: document.getElementById('hs6Codes').value.split(',').map(s => s.trim()).filter(s => s),
+            port_codes: document.getElementById('portCodes').value.split(',').map(s => s.trim()).filter(s => s),
+            alert_rules: {}
+        };
+        
+        const alertType = document.getElementById('alertType').value;
+        const threshold = document.getElementById('threshold').value;
+        
+        if (alertType === 'mom_change' || alertType === 'both') {
+            watchlistData.alert_rules.mom_change_threshold = parseFloat(threshold);
+        }
+        if (alertType === 'volume_threshold' || alertType === 'both') {
+            watchlistData.alert_rules.volume_threshold = parseFloat(threshold);
+        }
+        
+        try {
+            const response = await fetch('/watchlists', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(watchlistData)
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showSuccess('Watchlist created successfully!');
+                form.reset();
+                bootstrap.Modal.getInstance(document.getElementById('createWatchlistModal')).hide();
+                loadWatchlists();
+            } else {
+                showError('Failed to create watchlist: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error creating watchlist: ' + error.message);
+        }
+    });
+
+    // Alert type change handler
+    document.getElementById('alertType').addEventListener('change', function() {
+        const thresholdUnit = document.getElementById('thresholdUnit');
+        const threshold = document.getElementById('threshold');
+        
+        if (this.value === 'mom_change' || this.value === 'both') {
+            thresholdUnit.textContent = '%';
+            threshold.placeholder = 'e.g., 15.0';
+        } else if (this.value === 'volume_threshold') {
+            thresholdUnit.textContent = 'units';
+            threshold.placeholder = 'e.g., 1000000';
+        }
+    });
+
+    // Search functionality
+    document.getElementById('searchWatchlists').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const filteredWatchlists = watchlists.filter(w => 
+            w.name.toLowerCase().includes(searchTerm) ||
+            (w.hs6_codes || []).some(code => code.includes(searchTerm)) ||
+            (w.port_codes || []).some(port => port.includes(searchTerm))
+        );
+        renderWatchlists(filteredWatchlists);
+    });
+
+    // Utility functions
+    function showLoading() {
+        // Add loading spinner if needed
+    }
+
+    function hideLoading() {
+        // Remove loading spinner
+    }
+
+    function showSuccess(message) {
+        alert('Success: ' + message);
+    }
+
+    function showError(message) {
+        alert('Error: ' + message);
+    }
+});
+</script>
 {% endblock %}

@@ -1,27 +1,769 @@
 {% extends "base.html" %}
 
-{% block title %}Trade Data - PortRadar{% endblock %}
+{% block title %}Trade Data Explorer - PortRadar{% endblock %}
+
+{% block extra_css %}
+<style>
+.trade-filter-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+}
+.data-table {
+    font-size: 0.9em;
+}
+.value-cell {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+.change-positive {
+    color: #28a745;
+    font-weight: bold;
+}
+.change-negative {
+    color: #dc3545;
+    font-weight: bold;
+}
+.chart-container {
+    height: 400px;
+}
+.mini-chart {
+    height: 200px;
+}
+.loading-spinner {
+    display: none;
+}
+.filter-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="h2"><i class="bi bi-graph-up"></i> Trade Data Explorer</h1>
-        <p class="text-muted">Search and analyze U.S. international trade data</p>
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-graph-up"></i> Trade Data Explorer</h2>
+            <p class="text-muted mb-0">Analyze U.S. international trade data with advanced filtering and visualization</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="exportData('csv')">
+                <i class="bi bi-download"></i> Export CSV
+            </button>
+            <button class="btn btn-outline-primary" onclick="exportData('json')">
+                <i class="bi bi-filetype-json"></i> Export JSON
+            </button>
+        </div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-hammer fs-1 text-muted"></i>
-                <h3 class="mt-3">Coming Soon</h3>
-                <p class="text-muted">Interactive trade data explorer with charts and filters is under development.</p>
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Back to Dashboard
-                </a>
+    <!-- Filter Panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card trade-filter-card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <label for="tradeType" class="form-label">Trade Type</label>
+                            <select class="form-select" id="tradeType">
+                                <option value="imports">Imports</option>
+                                <option value="exports">Exports</option>
+                                <option value="both">Both</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="hs6Filter" class="form-label">HS6 Commodity Codes</label>
+                            <input type="text" class="form-control" id="hs6Filter" 
+                                   placeholder="e.g., 850440,854230">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="portFilter" class="form-label">Port Code</label>
+                            <input type="text" class="form-control" id="portFilter" 
+                                   placeholder="e.g., 2704">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="monthFilter" class="form-label">Month</label>
+                            <select class="form-select" id="monthFilter">
+                                <option value="">All Months</option>
+                                <option value="01">January</option>
+                                <option value="02">February</option>
+                                <option value="03">March</option>
+                                <option value="04">April</option>
+                                <option value="05">May</option>
+                                <option value="06">June</option>
+                                <option value="07">July</option>
+                                <option value="08">August</option>
+                                <option value="09">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="yearFilter" class="form-label">Year</label>
+                            <select class="form-select" id="yearFilter">
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                                <option value="2022">2022</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button class="btn btn-light" onclick="applyFilters()">
+                                <i class="bi bi-funnel"></i> Apply
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div id="activeFilters" class="d-flex flex-wrap gap-2">
+                                <!-- Active filters will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-box display-4 mb-2"></i>
+                    <h3 class="mb-0" id="totalRecords">-</h3>
+                    <small>Total Records</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-currency-dollar display-4 mb-2"></i>
+                    <h3 class="mb-0" id="totalValue">-</h3>
+                    <small>Total Value (USD)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-truck display-4 mb-2"></i>
+                    <h3 class="mb-0" id="totalQuantity">-</h3>
+                    <small>Total Quantity</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <i class="bi bi-geo-alt display-4 mb-2"></i>
+                    <h3 class="mb-0" id="uniquePorts">-</h3>
+                    <small>Unique Ports</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Trade Volume Trends</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary active" data-chart="monthly">Monthly</button>
+                        <button class="btn btn-outline-primary" data-chart="quarterly">Quarterly</button>
+                        <button class="btn btn-outline-primary" data-chart="yearly">Yearly</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="volumeTrendChart" class="chart-container"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Top Commodities</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="commodityChart" class="mini-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Port Analysis and Country Breakdown -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-geo-alt-fill"></i> Top Ports by Volume</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="portChart" class="mini-chart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-flag"></i> Country Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="countryChart" class="mini-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> Trade Data Records</h5>
+                    <div class="d-flex gap-2">
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control" placeholder="Search records..." id="searchTable">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <select class="form-select" style="width: 150px;" id="pageSize">
+                            <option value="25">25 per page</option>
+                            <option value="50" selected>50 per page</option>
+                            <option value="100">100 per page</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="loading-spinner text-center py-4" id="tableLoading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped data-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>HS6 Code</th>
+                                    <th>Commodity</th>
+                                    <th>Port</th>
+                                    <th>Country</th>
+                                    <th class="text-end">Value (USD)</th>
+                                    <th class="text-end">Quantity</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-center">Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            <small class="text-muted" id="recordInfo">Showing 0 records</small>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm" id="pagination">
+                                <!-- Pagination will be generated here -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Data Detail Modal -->
+<div class="modal fade" id="dataDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-info-circle"></i> Trade Record Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="dataDetailContent">
+                <!-- Record details will be shown here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let tradeData = [];
+    let filteredData = [];
+    let currentFilters = {};
+    let currentPage = 1;
+    let pageSize = 50;
+    let charts = {};
+
+    // Initialize page
+    loadTradeData();
+    initializeCharts();
+
+    async function loadTradeData() {
+        try {
+            showLoading(true);
+            const response = await fetch('/stored-data?limit=1000');
+            const data = await response.json();
+            
+            if (data.success) {
+                tradeData = data.trade_data;
+                filteredData = [...tradeData];
+                updateStatistics();
+                updateCharts();
+                updateDataTable();
+            } else {
+                showError('Failed to load trade data: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error loading trade data: ' + error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function updateStatistics() {
+        const data = filteredData;
+        
+        document.getElementById('totalRecords').textContent = data.length.toLocaleString();
+        
+        const totalValue = data.reduce((sum, record) => sum + (parseFloat(record.trade_value) || 0), 0);
+        document.getElementById('totalValue').textContent = '$' + (totalValue / 1000000).toFixed(1) + 'M';
+        
+        const totalQuantity = data.reduce((sum, record) => sum + (parseFloat(record.quantity) || 0), 0);
+        document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString();
+        
+        const uniquePorts = new Set(data.map(record => record.port_code)).size;
+        document.getElementById('uniquePorts').textContent = uniquePorts.toString();
+    }
+
+    function initializeCharts() {
+        // Volume Trend Chart
+        const volumeCtx = document.getElementById('volumeTrendChart').getContext('2d');
+        charts.volumeTrend = new Chart(volumeCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Imports',
+                    data: [],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Exports',
+                    data: [],
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Trade Value (USD)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Commodity Chart
+        const commodityCtx = document.getElementById('commodityChart').getContext('2d');
+        charts.commodity = new Chart(commodityCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: {
+                                size: 10
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Port Chart
+        const portCtx = document.getElementById('portChart').getContext('2d');
+        charts.port = new Chart(portCtx, {
+            type: 'horizontalBar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Trade Volume',
+                    data: [],
+                    backgroundColor: '#667eea'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Country Chart
+        const countryCtx = document.getElementById('countryChart').getContext('2d');
+        charts.country = new Chart(countryCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Trade Value',
+                    data: [],
+                    backgroundColor: '#764ba2'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function updateCharts() {
+        const data = filteredData;
+        
+        // Update volume trend chart
+        const monthlyData = aggregateByMonth(data);
+        charts.volumeTrend.data.labels = Object.keys(monthlyData);
+        charts.volumeTrend.data.datasets[0].data = Object.values(monthlyData).map(d => d.imports);
+        charts.volumeTrend.data.datasets[1].data = Object.values(monthlyData).map(d => d.exports);
+        charts.volumeTrend.update();
+
+        // Update commodity chart
+        const commodityData = aggregateByHs6(data);
+        const topCommodities = Object.entries(commodityData)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 8);
+        charts.commodity.data.labels = topCommodities.map(([hs6]) => hs6);
+        charts.commodity.data.datasets[0].data = topCommodities.map(([,value]) => value);
+        charts.commodity.update();
+
+        // Update port chart
+        const portData = aggregateByPort(data);
+        const topPorts = Object.entries(portData)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10);
+        charts.port.data.labels = topPorts.map(([port]) => port);
+        charts.port.data.datasets[0].data = topPorts.map(([,value]) => value);
+        charts.port.update();
+
+        // Update country chart
+        const countryData = aggregateByCountry(data);
+        const topCountries = Object.entries(countryData)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10);
+        charts.country.data.labels = topCountries.map(([country]) => country);
+        charts.country.data.datasets[0].data = topCountries.map(([,value]) => value);
+        charts.country.update();
+    }
+
+    function aggregateByMonth(data) {
+        const monthly = {};
+        data.forEach(record => {
+            const date = new Date(record.month + '-01');
+            const key = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+            if (!monthly[key]) {
+                monthly[key] = { imports: 0, exports: 0 };
+            }
+            const value = parseFloat(record.trade_value) || 0;
+            if (record.trade_type === 'imports') {
+                monthly[key].imports += value;
+            } else {
+                monthly[key].exports += value;
+            }
+        });
+        return monthly;
+    }
+
+    function aggregateByHs6(data) {
+        const hs6Data = {};
+        data.forEach(record => {
+            const hs6 = record.hs6_code;
+            if (!hs6Data[hs6]) {
+                hs6Data[hs6] = 0;
+            }
+            hs6Data[hs6] += parseFloat(record.trade_value) || 0;
+        });
+        return hs6Data;
+    }
+
+    function aggregateByPort(data) {
+        const portData = {};
+        data.forEach(record => {
+            const port = record.port_code;
+            if (!portData[port]) {
+                portData[port] = 0;
+            }
+            portData[port] += parseFloat(record.trade_value) || 0;
+        });
+        return portData;
+    }
+
+    function aggregateByCountry(data) {
+        const countryData = {};
+        data.forEach(record => {
+            const country = record.country_code || 'Unknown';
+            if (!countryData[country]) {
+                countryData[country] = 0;
+            }
+            countryData[country] += parseFloat(record.trade_value) || 0;
+        });
+        return countryData;
+    }
+
+    function updateDataTable() {
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const pageData = filteredData.slice(startIndex, endIndex);
+        
+        const tbody = document.getElementById('dataTableBody');
+        tbody.innerHTML = pageData.map(record => `
+            <tr onclick="showRecordDetails(${JSON.stringify(record).replace(/"/g, '&quot;')})">
+                <td>${new Date(record.month + '-01').toLocaleDateString()}</td>
+                <td><span class="badge ${record.trade_type === 'imports' ? 'bg-success' : 'bg-info'}">${record.trade_type}</span></td>
+                <td><code>${record.hs6_code}</code></td>
+                <td>${record.commodity_description || 'N/A'}</td>
+                <td>${record.port_code}</td>
+                <td>${record.country_code || 'N/A'}</td>
+                <td class="value-cell">${formatCurrency(record.trade_value)}</td>
+                <td class="value-cell">${formatNumber(record.quantity)}</td>
+                <td class="value-cell">${formatCurrency(calculateUnitPrice(record))}</td>
+                <td class="text-center">${getTrendIndicator(record)}</td>
+            </tr>
+        `).join('');
+        
+        updatePagination();
+        updateRecordInfo();
+    }
+
+    function updatePagination() {
+        const totalPages = Math.ceil(filteredData.length / pageSize);
+        const pagination = document.getElementById('pagination');
+        
+        let paginationHtml = '';
+        
+        // Previous button
+        paginationHtml += `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">&laquo;</a>
+            </li>
+        `;
+        
+        // Page numbers
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+            paginationHtml += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                </li>
+            `;
+        }
+        
+        // Next button
+        paginationHtml += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">&raquo;</a>
+            </li>
+        `;
+        
+        pagination.innerHTML = paginationHtml;
+    }
+
+    function updateRecordInfo() {
+        const startIndex = (currentPage - 1) * pageSize + 1;
+        const endIndex = Math.min(currentPage * pageSize, filteredData.length);
+        document.getElementById('recordInfo').textContent = 
+            `Showing ${startIndex}-${endIndex} of ${filteredData.length.toLocaleString()} records`;
+    }
+
+    // Filter functions
+    window.applyFilters = function() {
+        const tradeType = document.getElementById('tradeType').value;
+        const hs6Filter = document.getElementById('hs6Filter').value;
+        const portFilter = document.getElementById('portFilter').value;
+        const monthFilter = document.getElementById('monthFilter').value;
+        const yearFilter = document.getElementById('yearFilter').value;
+        
+        filteredData = tradeData.filter(record => {
+            if (tradeType !== 'both' && record.trade_type !== tradeType) return false;
+            if (hs6Filter && !record.hs6_code.includes(hs6Filter)) return false;
+            if (portFilter && !record.port_code.includes(portFilter)) return false;
+            if (monthFilter && !record.month.includes('-' + monthFilter + '-')) return false;
+            if (yearFilter && !record.month.includes(yearFilter)) return false;
+            return true;
+        });
+        
+        currentPage = 1;
+        updateStatistics();
+        updateCharts();
+        updateDataTable();
+        updateActiveFilters();
+    };
+
+    function updateActiveFilters() {
+        // TODO: Implement active filter badges
+    }
+
+    // Pagination
+    window.changePage = function(page) {
+        const totalPages = Math.ceil(filteredData.length / pageSize);
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            updateDataTable();
+        }
+    };
+
+    // Utility functions
+    function formatCurrency(value) {
+        const num = parseFloat(value) || 0;
+        return '$' + num.toLocaleString();
+    }
+
+    function formatNumber(value) {
+        const num = parseFloat(value) || 0;
+        return num.toLocaleString();
+    }
+
+    function calculateUnitPrice(record) {
+        const value = parseFloat(record.trade_value) || 0;
+        const quantity = parseFloat(record.quantity) || 0;
+        return quantity > 0 ? value / quantity : 0;
+    }
+
+    function getTrendIndicator(record) {
+        // TODO: Calculate actual trend based on historical data
+        const trend = Math.random() - 0.5;
+        if (trend > 0.1) return '<i class="bi bi-arrow-up text-success"></i>';
+        if (trend < -0.1) return '<i class="bi bi-arrow-down text-danger"></i>';
+        return '<i class="bi bi-dash text-muted"></i>';
+    }
+
+    window.showRecordDetails = function(record) {
+        const modal = document.getElementById('dataDetailModal');
+        const content = document.getElementById('dataDetailContent');
+        
+        content.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Trade Information</h6>
+                    <table class="table table-sm">
+                        <tr><th>Trade Type:</th><td>${record.trade_type}</td></tr>
+                        <tr><th>Date:</th><td>${new Date(record.month + '-01').toLocaleDateString()}</td></tr>
+                        <tr><th>HS6 Code:</th><td><code>${record.hs6_code}</code></td></tr>
+                        <tr><th>Commodity:</th><td>${record.commodity_description || 'N/A'}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Location & Value</h6>
+                    <table class="table table-sm">
+                        <tr><th>Port Code:</th><td>${record.port_code}</td></tr>
+                        <tr><th>Country:</th><td>${record.country_code || 'N/A'}</td></tr>
+                        <tr><th>Trade Value:</th><td>${formatCurrency(record.trade_value)}</td></tr>
+                        <tr><th>Quantity:</th><td>${formatNumber(record.quantity)}</td></tr>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        new bootstrap.Modal(modal).show();
+    };
+
+    window.exportData = function(format) {
+        // TODO: Implement data export functionality
+        alert(`Exporting data as ${format.toUpperCase()}...`);
+    };
+
+    function showLoading(show) {
+        document.getElementById('tableLoading').style.display = show ? 'block' : 'none';
+    }
+
+    function showError(message) {
+        alert('Error: ' + message);
+    }
+
+    // Page size change handler
+    document.getElementById('pageSize').addEventListener('change', function() {
+        pageSize = parseInt(this.value);
+        currentPage = 1;
+        updateDataTable();
+    });
+
+    // Search functionality
+    document.getElementById('searchTable').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filteredData = tradeData.filter(record => 
+            record.hs6_code.toLowerCase().includes(searchTerm) ||
+            (record.commodity_description || '').toLowerCase().includes(searchTerm) ||
+            record.port_code.toLowerCase().includes(searchTerm) ||
+            (record.country_code || '').toLowerCase().includes(searchTerm)
+        );
+        currentPage = 1;
+        updateStatistics();
+        updateCharts();
+        updateDataTable();
+    });
+});
+</script>
 {% endblock %}
