@@ -3,9 +3,10 @@
 A Flask application for monitoring U.S. international trade data by port and commodity codes.
 
 ## ✅ Step 1 Complete: API Data Fetching
-## ✅ Step 2 Complete: Database Integration
+## ✅ Step 2 Complete: Database Integration  
+## ✅ Step 3 Complete: Watchlist Management
 
-**Status: DATA PERSISTENCE WORKING** - Census API data is now stored in PostgreSQL!
+**Status: WATCHLIST SYSTEM OPERATIONAL** - Users can now create and manage watchlists!
 
 **Step 1 includes:**
 - ✅ Flask web application with REST API endpoints
@@ -24,13 +25,23 @@ A Flask application for monitoring U.S. international trade data by port and com
 - ✅ **Data persistence layer** - API data automatically stored in database
 - ✅ **Database query endpoint** (`/stored-data`) - Query historical data
 
+**Step 3 includes:**
+- ✅ **Watchlist Management System** - Complete CRUD operations for watchlists
+- ✅ **User-specific watchlists** - Filter by user ID for access control
+- ✅ **Multi-commodity monitoring** - Track multiple HS6 codes per watchlist
+- ✅ **Multi-port monitoring** - Track multiple ports per watchlist
+- ✅ **Configurable alert rules** - JSON-based rule configuration
+- ✅ **Full REST API** - Create, read, update, delete watchlists
+
 ### 🎯 Test Results
 - **90 import records** successfully fetched for HS6 850760 (Lithium Ion Batteries)
 - **83 export records** successfully fetched for HS6 850760  
 - **173 total records stored** in PostgreSQL database automatically
-- **All endpoints working** (/, /health, /trade-data, /test-api, /test-db, /stored-data)
+- **All endpoints working** (/, /health, /trade-data, /test-api, /test-db, /stored-data, /watchlists)
+- **Watchlist system operational** - Create, read, update, delete operations tested
 - **Database connectivity verified** - 6 tables found in PostgreSQL
 - **Data persistence verified** - API data automatically stored and queryable
+- **User access control** - Watchlists filtered by user ID
 - **Error handling verified** for invalid parameters
 
 ## Installation
@@ -111,6 +122,42 @@ Query stored trade data from database.
 curl "http://localhost:5000/stored-data?hs6=850760&flow=imports&limit=10"
 ```
 
+### Watchlist Management
+
+#### POST `/watchlists`
+Create a new watchlist for monitoring specific commodities and ports.
+**Status: ✅ Working**
+
+**JSON Body:**
+- `user_id` (required): User identifier
+- `name` (required): Watchlist name
+- `hs6` (optional): Array of HS6 codes to monitor
+- `ports` (optional): Array of port codes to monitor
+- `rules` (optional): JSON object with alert rules
+
+**Example:**
+```bash
+curl -X POST "http://localhost:5000/watchlists" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user123", "name": "Battery Watch", "hs6": ["850760", "850790"], "ports": ["1001"], "rules": {"threshold": 25}}'
+```
+
+#### GET `/watchlists`
+Get watchlists for a user or specific watchlist.
+**Status: ✅ Working**
+
+**Query Parameters:**
+- `user_id` (optional): Get watchlists for specific user
+- `id` (optional): Get specific watchlist by ID
+
+#### PUT `/watchlists/<id>`
+Update an existing watchlist.
+**Status: ✅ Working**
+
+#### DELETE `/watchlists/<id>`
+Delete a watchlist.
+**Status: ✅ Working**
+
 ## Testing
 
 Run the Census API integration test:
@@ -150,7 +197,7 @@ The PostgreSQL database includes 6 tables for comprehensive trade data tracking:
 - [x] ✅ Step 1: API integration with U.S. Census trade data
 - [x] ✅ Step 2: Database schema creation and connectivity  
 - [x] ✅ Step 2: Data persistence layer (store API data in database)
-- [ ] Step 3: Watchlist management endpoints
+- [x] ✅ Step 3: Watchlist management endpoints
 - [ ] Step 4: Alert system with MoM change detection
 - [ ] Step 5: Dashboard UI with Bootstrap
 

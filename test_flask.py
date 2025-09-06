@@ -112,6 +112,37 @@ def test_flask_endpoints():
                 print(f"   Sample: {sample.get('port_code')} - ${sample.get('value_usd')}")
         else:
             print(f"❌ Failed: {response.data}")
+        
+        # Test 9: Create watchlist
+        print("\nTest 9: POST /watchlists")
+        watchlist_data = {
+            "user_id": "test_user",
+            "name": "Test Watchlist",
+            "hs6": ["850760"],
+            "ports": ["1001"],
+            "rules": {"threshold": 25}
+        }
+        response = client.post('/watchlists', 
+                               json=watchlist_data, 
+                               headers={'Content-Type': 'application/json'})
+        print(f"Status: {response.status_code}")
+        if response.status_code == 201:
+            data = response.get_json()
+            print(f"✅ Success! Created watchlist ID: {data.get('watchlist_id')}")
+            watchlist_id = data.get('watchlist_id')
+        else:
+            print(f"❌ Failed: {response.data}")
+            
+        # Test 10: Get watchlists  
+        print("\nTest 10: GET /watchlists")
+        response = client.get('/watchlists?user_id=test_user')
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.get_json()
+            count = data.get('count', 0)
+            print(f"✅ Success! Found {count} watchlists")
+        else:
+            print(f"❌ Failed: {response.data}")
     
     print("\n" + "=" * 50)
     print("Flask endpoint testing completed!")

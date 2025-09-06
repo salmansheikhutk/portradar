@@ -6,6 +6,7 @@ import logging
 from dotenv import load_dotenv
 import psycopg
 from datetime import datetime
+import json
 
 # Load environment variables
 load_dotenv()
@@ -269,9 +270,236 @@ class TradeDataManager:
             return {"error": f"Database query failed: {str(e)}"}
 
 
-# Initialize API client and database manager
+class WatchlistManager:
+    """Handles watchlist management and operations"""
+    
+    def __init__(self, database_url):
+        self.database_url = database_url
+    
+    def create_watchlist(self, user_id, name, hs6_codes=None, port_codes=None, rules=None):
+        """Create a new watchlist"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    # Convert lists to PostgreSQL arrays
+                    hs6_array = hs6_codes or []
+                    ports_array = port_codes or []
+                    rules_json = rules or {}
+                    
+                    cursor.execute("""
+                        INSERT INTO watchlists (user_id, name, hs6, ports, rules_json, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id, created_at
+                    """, (user_id, name, hs6_array, ports_array, json.dumps(rules_json), datetime.now()))
+                    
+                    result = cursor.fetchone()
+                    watchlist_id = result[0]
+                    created_at = result[1]
+                    
+                    conn.commit()
+                    
+                    logger.info(f"Created watchlist '{name}' with ID {watchlist_id} for user {user_id}")
+                    return {
+                        "success": True,
+                        "watchlist_id": watchlist_id,
+                        "name": name,
+                        "user_id": user_id,
+                        "hs6": hs6_array,
+                        "ports": ports_array,
+                        "rules": rules_json,
+                        "created_at": created_at.isoformat()
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Failed to create watchlist: {e}")
+            return {"error": f"Failed to create watchlist: {str(e)}"}
+    
+    def get_watchlists(self, user_id=None, watchlist_id=None):
+        """Get watchlists for a user or specific watchlist"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    if watchlist_id:
+                        # Get specific watchlist
+                        cursor.execute("""
+                            SELECT id, user_id, name, hs6, ports, rules_json, created_at
+                            FROM watchlists WHERE id = %s
+                        """, (watchlist_id,))
+                        row = cursor.fetchone()
+                        
+                        if not row:
+                            return {"error": "Watchlist not found"}
+                        
+                        return {
+                            "success": True,
+                            "watchlist": {
+                                "id": row[0],
+                                "user_id": row[1],
+                                "name": row[2],
+                                "hs6": row[3],
+                                "ports": row[4],
+                                "rules": row[5],
+                                "created_at": row[6].isoformat()
+                            }
+                        }
+                    
+                    elif user_id:
+                        # Get all watchlists for user
+                        cursor.execute("""
+                            SELECT id, user_id, name, hs6, ports, rules_json, created_at
+                            FROM watchlists WHERE user_id = %s
+                            ORDER BY created_at DESC
+                        """, (user_id,))
+                        rows = cursor.fetchall()
+                        
+                        watchlists = []
+                        for row in rows:
+                            watchlists.append({
+                                "id": row[0],
+                                "user_id": row[1],
+                                "name": row[2],
+                                "hs6": row[3],
+                                "ports": row[4],
+                                "rules": row[5],
+                                "created_at": row[6].isoformat()
+                            })
+                        
+                        return {
+                            "success": True,
+                            "watchlists": watchlists,
+                            "count": len(watchlists)
+                        }
+                    
+                    else:
+                        # Get all watchlists (admin view)
+                        cursor.execute("""
+                            SELECT id, user_id, name, hs6, ports, rules_json, created_at
+                            FROM watchlists
+                            ORDER BY created_at DESC
+                            LIMIT 100
+                        """)
+                        rows = cursor.fetchall()
+                        
+                        watchlists = []
+                        for row in rows:
+                            watchlists.append({
+                                "id": row[0],
+                                "user_id": row[1],
+                                "name": row[2],
+                                "hs6": row[3],
+                                "ports": row[4],
+                                "rules": row[5],
+                                "created_at": row[6].isoformat()
+                            })
+                        
+                        return {
+                            "success": True,
+                            "watchlists": watchlists,
+                            "count": len(watchlists)
+                        }
+                        
+        except Exception as e:
+            logger.error(f"Failed to get watchlists: {e}")
+            return {"error": f"Failed to get watchlists: {str(e)}"}
+    
+    def update_watchlist(self, watchlist_id, user_id=None, name=None, hs6_codes=None, port_codes=None, rules=None):
+        """Update an existing watchlist"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    # First check if watchlist exists and belongs to user
+                    cursor.execute("SELECT user_id FROM watchlists WHERE id = %s", (watchlist_id,))
+                    result = cursor.fetchone()
+                    
+                    if not result:
+                        return {"error": "Watchlist not found"}
+                    
+                    if user_id and result[0] != user_id:
+                        return {"error": "Access denied"}
+                    
+                    # Build update query dynamically
+                    updates = []
+                    params = []
+                    
+                    if name is not None:
+                        updates.append("name = %s")
+                        params.append(name)
+                    
+                    if hs6_codes is not None:
+                        updates.append("hs6 = %s")
+                        params.append(hs6_codes)
+                    
+                    if port_codes is not None:
+                        updates.append("ports = %s")
+                        params.append(port_codes)
+                    
+                    if rules is not None:
+                        updates.append("rules_json = %s")
+                        params.append(json.dumps(rules))
+                    
+                    if not updates:
+                        return {"error": "No updates provided"}
+                    
+                    params.append(watchlist_id)
+                    query = f"UPDATE watchlists SET {', '.join(updates)} WHERE id = %s"
+                    
+                    cursor.execute(query, params)
+                    conn.commit()
+                    
+                    # Return updated watchlist
+                    return self.get_watchlists(watchlist_id=watchlist_id)
+                    
+        except Exception as e:
+            logger.error(f"Failed to update watchlist: {e}")
+            return {"error": f"Failed to update watchlist: {str(e)}"}
+    
+    def delete_watchlist(self, watchlist_id, user_id=None):
+        """Delete a watchlist"""
+        if not self.database_url:
+            return {"error": "Database not configured"}
+        
+        try:
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    # Check ownership if user_id provided
+                    if user_id:
+                        cursor.execute("SELECT user_id FROM watchlists WHERE id = %s", (watchlist_id,))
+                        result = cursor.fetchone()
+                        
+                        if not result:
+                            return {"error": "Watchlist not found"}
+                        
+                        if result[0] != user_id:
+                            return {"error": "Access denied"}
+                    
+                    cursor.execute("DELETE FROM watchlists WHERE id = %s", (watchlist_id,))
+                    
+                    if cursor.rowcount == 0:
+                        return {"error": "Watchlist not found"}
+                    
+                    conn.commit()
+                    
+                    logger.info(f"Deleted watchlist {watchlist_id}")
+                    return {"success": True, "message": f"Watchlist {watchlist_id} deleted"}
+                    
+        except Exception as e:
+            logger.error(f"Failed to delete watchlist: {e}")
+            return {"error": f"Failed to delete watchlist: {str(e)}"}
+
+
+# Initialize API client, database manager, and watchlist manager
 census_api = CensusTradeAPI()
 db_manager = TradeDataManager(DATABASE_URL) if DATABASE_URL else None
+watchlist_manager = WatchlistManager(DATABASE_URL) if DATABASE_URL else None
 
 @app.route('/')
 def index():
@@ -441,6 +669,150 @@ def test_db():
             'status': 'error',
             'message': f'Database connection failed: {str(e)}'
         }), 500
+
+@app.route('/watchlists', methods=['POST'])
+def create_watchlist():
+    """
+    Create a new watchlist
+    
+    JSON Body:
+    - user_id (required): User identifier
+    - name (required): Watchlist name
+    - hs6 (optional): Array of HS6 codes to monitor
+    - ports (optional): Array of port codes to monitor
+    - rules (optional): JSON object with alert rules
+    """
+    if not watchlist_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "JSON body required"}), 400
+        
+        user_id = data.get('user_id')
+        name = data.get('name')
+        hs6_codes = data.get('hs6', [])
+        port_codes = data.get('ports', [])
+        rules = data.get('rules', {})
+        
+        # Validate required fields
+        if not user_id:
+            return jsonify({"error": "user_id is required"}), 400
+        
+        if not name:
+            return jsonify({"error": "name is required"}), 400
+        
+        # Validate HS6 codes
+        if hs6_codes:
+            for hs6 in hs6_codes:
+                if not isinstance(hs6, str) or len(hs6) != 6 or not hs6.isdigit():
+                    return jsonify({"error": f"Invalid HS6 code: {hs6}"}), 400
+        
+        result = watchlist_manager.create_watchlist(user_id, name, hs6_codes, port_codes, rules)
+        
+        if "error" in result:
+            return jsonify(result), 500
+        
+        return jsonify(result), 201
+        
+    except Exception as e:
+        logger.error(f"Failed to create watchlist: {e}")
+        return jsonify({"error": "Failed to create watchlist"}), 500
+
+@app.route('/watchlists', methods=['GET'])
+def get_watchlists():
+    """
+    Get watchlists
+    
+    Query parameters:
+    - user_id (optional): Get watchlists for specific user
+    - id (optional): Get specific watchlist by ID
+    """
+    if not watchlist_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    user_id = request.args.get('user_id')
+    watchlist_id = request.args.get('id')
+    
+    if watchlist_id:
+        try:
+            watchlist_id = int(watchlist_id)
+        except ValueError:
+            return jsonify({"error": "Invalid watchlist ID"}), 400
+    
+    result = watchlist_manager.get_watchlists(user_id, watchlist_id)
+    
+    if "error" in result:
+        return jsonify(result), 404 if "not found" in result["error"].lower() else 500
+    
+    return jsonify(result)
+
+@app.route('/watchlists/<int:watchlist_id>', methods=['PUT'])
+def update_watchlist(watchlist_id):
+    """
+    Update an existing watchlist
+    
+    JSON Body (all optional):
+    - name: New watchlist name
+    - hs6: New array of HS6 codes
+    - ports: New array of port codes  
+    - rules: New rules JSON object
+    """
+    if not watchlist_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "JSON body required"}), 400
+        
+        name = data.get('name')
+        hs6_codes = data.get('hs6')
+        port_codes = data.get('ports')
+        rules = data.get('rules')
+        user_id = data.get('user_id')  # Optional for access control
+        
+        # Validate HS6 codes if provided
+        if hs6_codes:
+            for hs6 in hs6_codes:
+                if not isinstance(hs6, str) or len(hs6) != 6 or not hs6.isdigit():
+                    return jsonify({"error": f"Invalid HS6 code: {hs6}"}), 400
+        
+        result = watchlist_manager.update_watchlist(watchlist_id, user_id, name, hs6_codes, port_codes, rules)
+        
+        if "error" in result:
+            status_code = 404 if "not found" in result["error"].lower() else \
+                         403 if "access denied" in result["error"].lower() else 500
+            return jsonify(result), status_code
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Failed to update watchlist: {e}")
+        return jsonify({"error": "Failed to update watchlist"}), 500
+
+@app.route('/watchlists/<int:watchlist_id>', methods=['DELETE'])
+def delete_watchlist(watchlist_id):
+    """
+    Delete a watchlist
+    
+    Query parameters:
+    - user_id (optional): User ID for access control
+    """
+    if not watchlist_manager:
+        return jsonify({"error": "Database not configured"}), 500
+    
+    user_id = request.args.get('user_id')
+    
+    result = watchlist_manager.delete_watchlist(watchlist_id, user_id)
+    
+    if "error" in result:
+        status_code = 404 if "not found" in result["error"].lower() else \
+                     403 if "access denied" in result["error"].lower() else 500
+        return jsonify(result), status_code
+    
+    return jsonify(result)
 
 if __name__ == '__main__':
     # Get host and port from environment variables
