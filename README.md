@@ -224,3 +224,7 @@ The app uses environment variables defined in `.env`:
 - Additional database and feature settings for future use
 
 Update these variables as needed for your environment.
+
+
+Simple English:
+1. Can't search for commodity codes or port codes, cant select multiple.
