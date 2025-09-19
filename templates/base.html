@@ -40,11 +40,6 @@
                         <a class="nav-link {% if request.endpoint == 'watchlists_page' %}active{% endif %}" href="{{ url_for('watchlists_page') }}">
                             <i class="bi bi-binoculars"></i> Watchlists 
                             <span class="badge bg-primary ms-1" id="nav-watchlists-count">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'alerts_page' %}active{% endif %}" href="{{ url_for('alerts_page') }}">
-                            <i class="bi bi-bell"></i> Alerts 
                             <span class="badge bg-warning ms-1" id="nav-alerts-count">0</span>
                         </a>
                     </li>

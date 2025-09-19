@@ -860,11 +860,6 @@ def watchlists_page():
     """Watchlists management page"""
     return render_template('watchlists.html')
 
-@app.route('/alerts-page')
-def alerts_page():
-    """Alerts monitoring page"""
-    return render_template('alerts.html')
-
 @app.route('/debug')
 def debug_page():
     """Debug page for testing API calls"""

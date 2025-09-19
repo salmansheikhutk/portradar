@@ -52,14 +52,14 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header Section -->
+    <!-- Simple Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2><i class="bi bi-list-check"></i> Watchlist Management</h2>
-            <p class="text-muted mb-0">Monitor trade flows and get alerts for your key commodities and ports</p>
+            <h2><i class="bi bi-list-check"></i> My Watchlists</h2>
+            <p class="text-muted mb-0">Monitor trade flows and manage alerts</p>
         </div>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createWatchlistModal">
-            <i class="bi bi-plus-circle"></i> Create New Watchlist
+            <i class="bi bi-plus-circle"></i> Create Watchlist
         </button>
     </div>
 
@@ -358,6 +358,67 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Watchlist Modal -->
+<div class="modal fade" id="editWatchlistModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Watchlist & Alert Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Watchlist Details -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Watchlist Details</h6>
+                        <div class="mb-3">
+                            <strong>Name:</strong>
+                            <div id="editWatchlistName" class="mt-1"></div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>HS6 Commodity Codes:</strong>
+                            <div id="editWatchlistHS6" class="mt-1"></div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Port Codes:</strong>
+                            <div id="editWatchlistPorts" class="mt-1"></div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Created:</strong>
+                            <div id="editWatchlistCreated" class="mt-1 text-muted"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">Alert Settings</h6>
+                        <div class="mb-3">
+                            <strong>Current Alert Rules:</strong>
+                            <div id="editWatchlistRules" class="mt-1"></div>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>How Alerts Work:</strong>
+                            <ul class="mb-0 mt-2 small">
+                                <li>Monitor trade data for your commodities/ports</li>
+                                <li>Alert on month-over-month changes</li>
+                                <li>Alert on volume thresholds</li>
+                                <li>Real-time notifications when triggered</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="enableAlertsForWatchlist()">
+                    <i class="bi bi-bell"></i> Enable/Update Alerts
+                </button>
+                <button type="button" class="btn btn-primary">Edit Watchlist (Coming Soon)</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -446,8 +507,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderWatchlists(watchlists) {
+        console.log('renderWatchlists called with:', watchlists.length, 'watchlists');
         const grid = document.getElementById('watchlistsGrid');
         const noWatchlists = document.getElementById('noWatchlists');
+        
+        console.log('Grid element found:', !!grid);
+        console.log('NoWatchlists element found:', !!noWatchlists);
         
         if (watchlists.length === 0) {
             grid.style.display = 'none';
@@ -458,48 +523,57 @@ document.addEventListener('DOMContentLoaded', function() {
         grid.style.display = 'flex';
         noWatchlists.style.display = 'none';
         
-        grid.innerHTML = watchlists.map(watchlist => `
-            <div class="col-lg-6 col-xl-4 mb-4">
-                <div class="card watchlist-card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-start">
-                        <h6 class="mb-0">${watchlist.name}</h6>
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="editWatchlist(${watchlist.id})" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="generateWatchlistAlerts(${watchlist.id})" title="Generate Alerts">
-                                <i class="bi bi-bell"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteWatchlist(${watchlist.id})" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-2">
-                            <small class="text-muted">HS6 Codes:</small><br>
-                            <code class="small">${(watchlist.hs6 || []).join(', ') || 'None'}</code>
-                        </div>
-                        <div class="mb-2">
-                            <small class="text-muted">Ports:</small><br>
-                            <code class="small">${(watchlist.ports || []).join(', ') || 'All ports'}</code>
-                        </div>
-                        <div class="mb-3">
-                            <small class="text-muted">Alert Rules:</small><br>
-                            ${renderAlertRules(watchlist.rules)}
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">
-                                Created: ${new Date(watchlist.created_at).toLocaleDateString()}
-                            </small>
-                            <button class="btn btn-sm btn-primary" onclick="generateWatchlistAlerts(${watchlist.id})">
-                                <i class="bi bi-bell"></i> Generate Alerts
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
+        console.log('About to generate HTML for watchlists...');
+        
+        grid.innerHTML = watchlists.map(watchlist => 
+            '<div class="col-lg-6 col-xl-4 mb-4">' +
+                '<div class="card watchlist-card h-100">' +
+                    '<div class="card-header d-flex justify-content-between align-items-start">' +
+                        '<h6 class="mb-0">' + watchlist.name + '</h6>' +
+                        '<div class="d-flex gap-1">' +
+                            '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="alert(\'Edit button clicked for ID: ' + watchlist.id + '\'); editWatchlist(' + watchlist.id + '); return false;" title="Edit">' +
+                                '<i class="bi bi-pencil"></i>' +
+                            '</button>' +
+                            '<button type="button" class="btn btn-sm btn-outline-danger" onclick="event.preventDefault(); deleteWatchlist(' + watchlist.id + '); return false;" title="Delete">' +
+                                '<i class="bi bi-trash"></i>' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="card-body">' +
+                        '<div class="mb-2">' +
+                            '<small class="text-muted">HS6 Codes:</small><br>' +
+                            '<code class="small">' + ((watchlist.hs6 || []).join(', ') || 'None') + '</code>' +
+                        '</div>' +
+                        '<div class="mb-2">' +
+                            '<small class="text-muted">Ports:</small><br>' +
+                            '<code class="small">' + ((watchlist.ports || []).join(', ') || 'All ports') + '</code>' +
+                        '</div>' +
+                        '<div class="mb-3">' +
+                            '<small class="text-muted">Alert Rules:</small><br>' +
+                            renderAlertRules(watchlist.rules) +
+                        '</div>' +
+                        '<div class="d-flex justify-content-between align-items-center">' +
+                            '<small class="text-muted">' +
+                                'Created: ' + new Date(watchlist.created_at).toLocaleDateString() +
+                            '</small>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>'
+        ).join('');
+        
+        console.log('Generated HTML for', watchlists.length, 'watchlists');
+        console.log('Setting grid.innerHTML...');
+        console.log('First 200 chars of HTML:', grid.innerHTML.substring(0, 200));
+        
+        // Add click event listeners as backup
+        setTimeout(() => {
+            const editButtons = document.querySelectorAll('[title="Edit"]');
+            console.log('Found', editButtons.length, 'edit buttons');
+            editButtons.forEach((btn, index) => {
+                console.log('Edit button', index, 'onclick:', btn.getAttribute('onclick'));
+            });
+        }, 100);
     }
 
     function renderAlertRules(rules) {
@@ -949,29 +1023,138 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    window.editWatchlist = function(watchlistId) {
-        alert('Edit watchlist functionality not implemented yet');
-    };
-
-    window.generateWatchlistAlerts = function(watchlistId) {
-        alert('Generate alerts functionality not implemented yet');
-    };
-
-    window.addCommodityToWatchlist = function(hs6Code, description) {
-        alert('Add commodity functionality not implemented yet');
-    };
-
-    window.addPortToWatchlist = function(portCode, portName) {
-        alert('Add port functionality not implemented yet');
-    };
-
-    window.removeCommodity = function(hs6Code) {
-        alert('Remove commodity functionality not implemented yet');
-    };
-
-    window.removePort = function(portCode) {
-        alert('Remove port functionality not implemented yet');
-    };
 });
+
+// Global functions that need to be accessible from onclick handlers
+window.editWatchlist = function(watchlistId) {
+    console.log('editWatchlist called with ID:', watchlistId);
+    
+    // Get watchlists from API
+    fetch(`/watchlists?user_id=demo_user`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Fetched watchlists for edit:', data);
+            const watchlist = data.watchlists.find(w => w.id === watchlistId);
+            if (watchlist) {
+                // Populate modal with watchlist data
+                document.getElementById('editWatchlistName').textContent = watchlist.name;
+                document.getElementById('editWatchlistHS6').innerHTML = 
+                    (watchlist.hs6 || []).length > 0 
+                        ? (watchlist.hs6 || []).map(code => `<span class="badge bg-info me-1">${code}</span>`).join('')
+                        : '<span class="text-muted">None</span>';
+                document.getElementById('editWatchlistPorts').innerHTML = 
+                    (watchlist.ports || []).length > 0 
+                        ? (watchlist.ports || []).map(port => `<span class="badge bg-success me-1">${port}</span>`).join('')
+                        : '<span class="text-muted">All ports</span>';
+                
+                // Show alert rules
+                const rules = watchlist.rules || {};
+                let rulesHtml = '';
+                if (rules.mom_change_threshold) {
+                    rulesHtml += `<span class="badge bg-warning me-1">MoM Change: ${rules.mom_change_threshold}%</span>`;
+                }
+                if (rules.volume_threshold) {
+                    rulesHtml += `<span class="badge bg-primary me-1">Volume: $${rules.volume_threshold.toLocaleString()}</span>`;
+                }
+                document.getElementById('editWatchlistRules').innerHTML = 
+                    rulesHtml || '<span class="text-muted">No alert rules</span>';
+                
+                document.getElementById('editWatchlistCreated').textContent = 
+                    new Date(watchlist.created_at).toLocaleString();
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('editWatchlistModal'));
+                modal.show();
+                
+                console.log('Showing edit modal for watchlist:', watchlist.name);
+            } else {
+                console.error('Watchlist not found');
+                alert('Watchlist not found');
+            }
+        })
+        .catch(error => {
+            console.error('Error in editWatchlist:', error);
+            alert('Error loading watchlist: ' + error.message);
+        });
+};
+
+window.generateWatchlistAlerts = function(watchlistId) {
+    console.log('generateWatchlistAlerts called with ID:', watchlistId);
+    
+    fetch(`/watchlists?user_id=demo_user`)
+        .then(response => response.json())
+        .then(data => {
+            const watchlist = data.watchlists.find(w => w.id === watchlistId);
+            if (watchlist) {
+                // Populate modal with watchlist data
+                document.getElementById('alertWatchlistName').textContent = watchlist.name;
+                
+                // Show what's being monitored
+                let monitoring = [];
+                if (watchlist.hs6 && watchlist.hs6.length > 0) {
+                    monitoring.push(`<strong>Commodities:</strong> ${watchlist.hs6.map(code => `<span class="badge bg-info me-1">${code}</span>`).join('')}`);
+                } else {
+                    monitoring.push('<strong>Commodities:</strong> <span class="text-muted">All commodities</span>');
+                }
+                
+                if (watchlist.ports && watchlist.ports.length > 0) {
+                    monitoring.push(`<strong>Ports:</strong> ${watchlist.ports.map(port => `<span class="badge bg-success me-1">${port}</span>`).join('')}`);
+                } else {
+                    monitoring.push('<strong>Ports:</strong> <span class="text-muted">All ports</span>');
+                }
+                
+                document.getElementById('alertMonitoring').innerHTML = monitoring.join('<br>');
+                
+                // Show alert conditions
+                const rules = watchlist.rules || {};
+                let conditions = [];
+                if (rules.mom_change_threshold) {
+                    conditions.push(`<span class="badge bg-warning me-1">Month-over-Month change ≥ ${rules.mom_change_threshold}%</span>`);
+                }
+                if (rules.volume_threshold) {
+                    conditions.push(`<span class="badge bg-primary me-1">Trade volume ≥ $${rules.volume_threshold.toLocaleString()}</span>`);
+                }
+                
+                document.getElementById('alertConditions').innerHTML = 
+                    conditions.length > 0 
+                        ? conditions.join('<br>') 
+                        : '<span class="text-muted">No specific thresholds set - will use default alert criteria</span>';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('generateAlertsModal'));
+                modal.show();
+                
+                                console.log('Showing edit modal for watchlist:', watchlist.name);
+            } else {
+                console.error('Watchlist not found');
+                alert('Watchlist not found');
+            }
+        })
+        .catch(error => {
+            console.error('Error in editWatchlist:', error);
+            alert('Error loading watchlist: ' + error.message);
+        });
+};
+
+window.enableAlertsForWatchlist = function() {
+    alert('Alert configuration will be implemented here. This will allow you to:\n\n• Set MoM change thresholds\n• Set volume alert limits\n• Configure notification preferences\n• Enable/disable specific alert types\n\nComing soon!');
+};
+
+window.addCommodityToWatchlist = function(hs6Code, description) {
+    alert('Add commodity functionality not implemented yet');
+};
+
+window.addPortToWatchlist = function(portCode, portName) {
+    alert('Add port functionality not implemented yet');
+};
+
+window.removeCommodity = function(hs6Code) {
+    alert('Remove commodity functionality not implemented yet');
+};
+
+window.removePort = function(portCode) {
+    alert('Remove port functionality not implemented yet');
+};
+
 </script>
 {% endblock %}
