@@ -46,9 +46,6 @@
                     <p class="text-muted mb-0">Monitor U.S. international trade data</p>
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-outline-secondary" onclick="testFunction()">
-                        Test JS
-                    </button>
                     <button class="btn btn-outline-primary" onclick="showCreateWatchlistModal()">
                         <i class="bi bi-plus-circle"></i> Create Watchlist
                     </button>
@@ -65,18 +62,14 @@
     <div class="row mb-4" id="watchlistsSection" style="display: block;">
         <div class="col-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-header">
                     <h6 class="mb-0"><i class="bi bi-binoculars"></i> My Watchlists</h6>
-                    <button class="btn btn-sm btn-outline-primary" onclick="showCreateWatchlistModal()">
-                        <i class="bi bi-plus"></i> Add Watchlist
-                    </button>
                 </div>
                 <div class="card-body">
                     <div id="watchlistsContainer" class="row">
                         <!-- Watchlists will be loaded here -->
                         <div class="col-12">
                             <button class="btn btn-primary" onclick="loadDashboardWatchlists()">Load Watchlists</button>
-                            <p class="text-muted mt-2">If this section is visible, the HTML is correct.</p>
                         </div>
                     </div>
                 </div>
