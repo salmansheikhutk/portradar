@@ -62,7 +62,7 @@
     </div>
 
     <!-- My Watchlists Section -->
-    <div class="row mb-4" id="watchlistsSection" style="display: none;">
+    <div class="row mb-4" id="watchlistsSection" style="display: block;">
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -73,11 +73,19 @@
                 </div>
                 <div class="card-body">
                     <div id="watchlistsContainer" class="row">
-                        <div class="col-12 text-center text-muted">
-                            <p>No watchlists created yet. Create one to monitor specific commodities and ports.</p>
+                        <!-- Watchlists will be loaded here -->
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-primary" onclick="loadDashboardWatchlists()">
+                                Test Load Watchlists
+                            </button>
+                            <p class="text-muted mt-2">Debug: Section is visible, testing watchlist loading...</p>
                         </div>
                     </div>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
             </div>
         </div>
     </div>
@@ -802,6 +810,116 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 });
+
+// Load watchlists for dashboard
+async function loadDashboardWatchlists() {
+    console.log('Loading dashboard watchlists...');
+    try {
+        const response = await fetch('/watchlists?user_id=demo_user');
+        const data = await response.json();
+        console.log('Watchlists API response:', data);
+        
+        if (data.success && data.watchlists && data.watchlists.length > 0) {
+            console.log('Found', data.watchlists.length, 'watchlists, showing section');
+            const section = document.getElementById('watchlistsSection');
+            if (section) {
+                section.style.display = 'block';
+                renderDashboardWatchlists(data.watchlists);
+            } else {
+                console.error('watchlistsSection element not found!');
+            }
+        } else {
+            console.log('No watchlists found or API failed');
+        }
+    } catch (error) {
+        console.error('Failed to load watchlists:', error);
+    }
+}
+
+// Render watchlists in dashboard
+function renderDashboardWatchlists(watchlists) {
+    console.log('Rendering', watchlists.length, 'watchlists');
+    const container = document.getElementById('watchlistsContainer');
+    
+    if (!container) {
+        console.error('watchlistsContainer element not found!');
+        return;
+    }
+    
+    container.innerHTML = watchlists.map(watchlist => 
+        '<div class="col-md-4 mb-3">' +
+            '<div class="card border-primary">' +
+                '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                        '<h6 class="card-title mb-0">' + watchlist.name + '</h6>' +
+                        '<div class="dropdown">' +
+                            '<button class="btn btn-sm btn-link p-0" data-bs-toggle="dropdown">' +
+                                '<i class="bi bi-three-dots"></i>' +
+                            '</button>' +
+                            '<ul class="dropdown-menu dropdown-menu-end">' +
+                                '<li><a class="dropdown-item" href="#" onclick="editWatchlistDashboard(' + watchlist.id + ')">' +
+                                    '<i class="bi bi-pencil"></i> Edit' +
+                                '</a></li>' +
+                                '<li><a class="dropdown-item" href="#" onclick="applyWatchlistFilter(' + watchlist.id + ')">' +
+                                    '<i class="bi bi-filter"></i> Apply Filter' +
+                                '</a></li>' +
+                                '<li><hr class="dropdown-divider"></li>' +
+                                '<li><a class="dropdown-item text-danger" href="#" onclick="deleteWatchlist(' + watchlist.id + ')">' +
+                                    '<i class="bi bi-trash"></i> Delete' +
+                                '</a></li>' +
+                            '</ul>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="small text-muted mb-2">' +
+                        '<strong>Commodities:</strong> ' + ((watchlist.hs6 || []).join(', ') || 'All') +
+                    '</div>' +
+                    '<div class="small text-muted">' +
+                        '<strong>Ports:</strong> ' + ((watchlist.ports || []).join(', ') || 'All') +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>'
+    ).join('');
+    
+    console.log('Watchlists rendered successfully');
+}
+
+// Apply watchlist as filter
+function applyWatchlistFilter(watchlistId) {
+    fetch('/watchlists?user_id=demo_user')
+        .then(response => response.json())
+        .then(data => {
+            const watchlist = data.watchlists.find(w => w.id === watchlistId);
+            if (watchlist) {
+                // Apply HS6 filter
+                if (watchlist.hs6 && watchlist.hs6.length > 0) {
+                    document.getElementById('hs6Filter').value = watchlist.hs6[0];
+                }
+                // Apply port filter  
+                if (watchlist.ports && watchlist.ports.length > 0) {
+                    document.getElementById('portFilter').value = watchlist.ports[0];
+                }
+                // Trigger filter
+                applyFilters();
+                
+                // Show success message
+                showAlert('Applied ' + watchlist.name + ' filters to data table', 'success');
+            }
+        })
+        .catch(error => console.error('Error applying watchlist filter:', error));
+}
+
+function editWatchlistDashboard(watchlistId) {
+    // For now, just show info
+    fetch('/watchlists?user_id=demo_user')
+        .then(response => response.json())
+        .then(data => {
+            const watchlist = data.watchlists.find(w => w.id === watchlistId);
+            if (watchlist) {
+                alert('Edit Watchlist: ' + watchlist.name + '\n\nHS6: ' + (watchlist.hs6 || []).join(', ') + '\nPorts: ' + (watchlist.ports || []).join(', ') + '\n\nEdit functionality coming soon!');
+            }
+        });
+}
 </script>
 
 <!-- Create Watchlist Modal -->
@@ -891,98 +1009,6 @@ async function loadDashboardMetrics() {
     } catch (error) {
         console.error('Failed to load dashboard metrics:', error);
     }
-}
-
-// Load watchlists for dashboard
-async function loadDashboardWatchlists() {
-    try {
-        const response = await fetch('/watchlists?user_id=demo_user');
-        const data = await response.json();
-        
-        if (data.success && data.watchlists.length > 0) {
-            document.getElementById('watchlistsSection').style.display = 'block';
-            renderDashboardWatchlists(data.watchlists);
-        }
-    } catch (error) {
-        console.error('Failed to load watchlists:', error);
-    }
-}
-
-// Render watchlists in dashboard
-function renderDashboardWatchlists(watchlists) {
-    const container = document.getElementById('watchlistsContainer');
-    
-    container.innerHTML = watchlists.map(watchlist => 
-        '<div class="col-md-4 mb-3">' +
-            '<div class="card border-primary">' +
-                '<div class="card-body p-3">' +
-                    '<div class="d-flex justify-content-between align-items-start mb-2">' +
-                        '<h6 class="card-title mb-0">' + watchlist.name + '</h6>' +
-                        '<div class="dropdown">' +
-                            '<button class="btn btn-sm btn-link p-0" data-bs-toggle="dropdown">' +
-                                '<i class="bi bi-three-dots"></i>' +
-                            '</button>' +
-                            '<ul class="dropdown-menu dropdown-menu-end">' +
-                                '<li><a class="dropdown-item" href="#" onclick="editWatchlistDashboard(' + watchlist.id + ')">' +
-                                    '<i class="bi bi-pencil"></i> Edit' +
-                                '</a></li>' +
-                                '<li><a class="dropdown-item" href="#" onclick="applyWatchlistFilter(' + watchlist.id + ')">' +
-                                    '<i class="bi bi-filter"></i> Apply Filter' +
-                                '</a></li>' +
-                                '<li><hr class="dropdown-divider"></li>' +
-                                '<li><a class="dropdown-item text-danger" href="#" onclick="deleteWatchlist(' + watchlist.id + ')">' +
-                                    '<i class="bi bi-trash"></i> Delete' +
-                                '</a></li>' +
-                            '</ul>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="small text-muted mb-2">' +
-                        '<strong>Commodities:</strong> ' + ((watchlist.hs6 || []).join(', ') || 'All') +
-                    '</div>' +
-                    '<div class="small text-muted">' +
-                        '<strong>Ports:</strong> ' + ((watchlist.ports || []).join(', ') || 'All') +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-        '</div>'
-    ).join('');
-}
-
-// Apply watchlist as filter
-function applyWatchlistFilter(watchlistId) {
-    fetch('/watchlists?user_id=demo_user')
-        .then(response => response.json())
-        .then(data => {
-            const watchlist = data.watchlists.find(w => w.id === watchlistId);
-            if (watchlist) {
-                // Apply HS6 filter
-                if (watchlist.hs6 && watchlist.hs6.length > 0) {
-                    document.getElementById('hs6Filter').value = watchlist.hs6[0];
-                }
-                // Apply port filter  
-                if (watchlist.ports && watchlist.ports.length > 0) {
-                    document.getElementById('portFilter').value = watchlist.ports[0];
-                }
-                // Trigger filter
-                applyFilters();
-                
-                // Show success message
-                showAlert('Applied ' + watchlist.name + ' filters to data table', 'success');
-            }
-        })
-        .catch(error => console.error('Error applying watchlist filter:', error));
-}
-
-function editWatchlistDashboard(watchlistId) {
-    // For now, just show info
-    fetch('/watchlists?user_id=demo_user')
-        .then(response => response.json())
-        .then(data => {
-            const watchlist = data.watchlists.find(w => w.id === watchlistId);
-            if (watchlist) {
-                alert('Edit Watchlist: ' + watchlist.name + '\n\nHS6: ' + (watchlist.hs6 || []).join(', ') + '\nPorts: ' + (watchlist.ports || []).join(', ') + '\n\nEdit functionality coming soon!');
-            }
-        });
 }
 
 // Simple test function

@@ -36,13 +36,6 @@
                             <i class="bi bi-house"></i> Home
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'watchlists_page' %}active{% endif %}" href="{{ url_for('watchlists_page') }}">
-                            <i class="bi bi-binoculars"></i> Watchlists 
-                            <span class="badge bg-primary ms-1" id="nav-watchlists-count">0</span>
-                            <span class="badge bg-warning ms-1" id="nav-alerts-count">0</span>
-                        </a>
-                    </li>
                 </ul>
                 
                 <ul class="navbar-nav">

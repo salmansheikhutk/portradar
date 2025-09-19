@@ -855,11 +855,6 @@ def dashboard():
     """Main consolidated dashboard and trade data page"""
     return render_template('trade_data.html')
 
-@app.route('/watchlists-page')
-def watchlists_page():
-    """Watchlists management page"""
-    return render_template('watchlists.html')
-
 @app.route('/debug')
 def debug_page():
     """Debug page for testing API calls"""
